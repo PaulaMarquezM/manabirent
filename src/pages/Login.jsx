@@ -1,33 +1,42 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { LogIn, Eye, EyeOff, Shield } from 'lucide-react'
+import { LogIn, Eye, EyeOff } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
-const USUARIOS_DEMO = [
-  { email: 'arrendador@demo.com', password: '1234', nombre: 'Carlos Mendoza', rol: 'arrendador' },
-  { email: 'admin@municipio.gob.ec', password: '1234', nombre: 'Admin Municipal', rol: 'admin' },
-  { email: 'inquilino@demo.com', password: '1234', nombre: 'María López', rol: 'inquilino' },
-]
-
-export default function Login({ onLogin }) {
+export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [verPass, setVerPass] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  
   const navigate = useNavigate()
+  const { login, user } = useAuth()
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const usuario = USUARIOS_DEMO.find((u) => u.email === form.email && u.password === form.password)
-    if (usuario) {
-      onLogin(usuario)
-      navigate(usuario.rol === 'admin' ? '/admin' : usuario.rol === 'arrendador' ? '/publicar' : '/')
-    } else {
-      setError('Credenciales incorrectas. Usa las cuentas demo.')
-    }
+  // Si ya está logueado, redirigimos
+  if (user) {
+    if (user.rol === 'admin') navigate('/admin')
+    else if (user.rol === 'arrendador') navigate('/publicar')
+    else navigate('/')
+    return null
   }
 
-  const loginDemo = (usuario) => {
-    onLogin(usuario)
-    navigate(usuario.rol === 'admin' ? '/admin' : usuario.rol === 'arrendador' ? '/publicar' : '/')
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      const authData = await login(form.email, form.password)
+      const rol = authData.user.user_metadata?.rol
+      
+      if (rol === 'admin') navigate('/admin')
+      else if (rol === 'arrendador') navigate('/publicar')
+      else navigate('/')
+    } catch (err) {
+      setError(err.message || 'Credenciales incorrectas o error en el servidor.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -71,35 +80,19 @@ export default function Login({ onLogin }) {
 
             {error && <p className="text-red-500 text-xs bg-red-50 rounded-lg px-3 py-2">{error}</p>}
 
-            <button type="submit" className="w-full bg-primary-700 hover:bg-primary-800 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-primary-700 hover:bg-primary-800 disabled:opacity-70 text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+            >
               <LogIn size={16} />
-              Ingresar
+              {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
 
           <div className="mt-4 text-center">
             <span className="text-gray-400 text-xs">¿No tienes cuenta? </span>
             <Link to="/registro" className="text-primary-600 text-xs font-medium hover:underline">Regístrate aquí</Link>
-          </div>
-        </div>
-
-        {/* Cuentas demo */}
-        <div className="mt-4 bg-blue-50 rounded-xl p-4 border border-blue-100">
-          <p className="text-xs font-semibold text-blue-700 mb-3 flex items-center gap-1">
-            <Shield size={12} /> Cuentas de demostración
-          </p>
-          <div className="space-y-2">
-            {USUARIOS_DEMO.map((u) => (
-              <button
-                key={u.email}
-                onClick={() => loginDemo(u)}
-                className="w-full text-left bg-white hover:bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs transition-colors"
-              >
-                <span className="font-semibold text-gray-700">{u.nombre}</span>
-                <span className="text-gray-400 ml-2">({u.rol})</span>
-                <span className="text-blue-500 text-xs block">{u.email}</span>
-              </button>
-            ))}
           </div>
         </div>
       </div>
