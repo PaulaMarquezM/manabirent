@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Upload, CheckCircle, PlusCircle, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import { ArrowLeft, Upload, CheckCircle, PlusCircle, X, Loader2, AlertTriangle } from 'lucide-react'
 import { ciudades, sectoresPorCiudad } from '../data/mockData'
+import { createProperty, updateProperty, getProperty } from '../lib/properties'
 
 const SERVICIOS_OPCIONES = [
   'WiFi', 'Agua caliente', 'Parqueadero', 'Cocina equipada', 'Cocina compartida',
@@ -9,22 +10,55 @@ const SERVICIOS_OPCIONES = [
   'Limpieza semanal', 'Patio', 'Baño privado', 'Área de lavado',
 ]
 
+const FORM_INICIAL = {
+  titulo: '',
+  tipo: '',
+  ciudad: '',
+  sector: '',
+  precio: '',
+  descripcion: '',
+  servicios: [],
+  reglas: '',
+  min_meses: '3',
+  fotos: [], // mezcla de strings (URLs existentes) y File (nuevas)
+}
+
 export default function PublishProperty({ user }) {
-  const navigate = useNavigate()
+  const { id } = useParams() // si existe -> modo edición
+  const esEdicion = Boolean(id)
+  const fileInputRef = useRef(null)
+
   const [paso, setPaso] = useState(1)
   const [enviado, setEnviado] = useState(false)
-  const [form, setForm] = useState({
-    titulo: '',
-    tipo: '',
-    ciudad: '',
-    sector: '',
-    precio: '',
-    descripcion: '',
-    servicios: [],
-    reglas: '',
-    min_meses: '3',
-    fotos: [],
-  })
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState('')
+  const [cargando, setCargando] = useState(esEdicion)
+  const [form, setForm] = useState(FORM_INICIAL)
+
+  // Cargar datos existentes en modo edición
+  useEffect(() => {
+    if (!esEdicion) return
+    let activo = true
+    getProperty(id)
+      .then((p) => {
+        if (!activo) return
+        setForm({
+          titulo: p.titulo || '',
+          tipo: p.tipo || '',
+          ciudad: p.ciudad || '',
+          sector: p.sector || '',
+          precio: String(p.precio ?? ''),
+          descripcion: p.descripcion || '',
+          servicios: p.servicios || [],
+          reglas: p.reglas || '',
+          min_meses: String(p.min_meses ?? '3'),
+          fotos: p.fotos || [],
+        })
+      })
+      .catch((e) => setError(e.message || 'No se pudo cargar el inmueble.'))
+      .finally(() => activo && setCargando(false))
+    return () => { activo = false }
+  }, [id, esEdicion])
 
   if (!user) {
     return (
@@ -42,12 +76,60 @@ export default function PublishProperty({ user }) {
     }))
   }
 
-  const handleSubmit = (e) => {
+  const agregarFotos = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setForm((f) => ({ ...f, fotos: [...f.fotos, ...files] }))
+    e.target.value = '' // permitir volver a seleccionar el mismo archivo
+  }
+
+  const quitarFoto = (idx) => {
+    setForm((f) => ({ ...f, fotos: f.fotos.filter((_, i) => i !== idx) }))
+  }
+
+  // URL de vista previa para File o para string (URL ya subida)
+  const previewUrl = (foto) => (typeof foto === 'string' ? foto : URL.createObjectURL(foto))
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setEnviado(true)
+    setError('')
+
+    if (form.fotos.length < 3) {
+      setError('Debes agregar al menos 3 fotos del inmueble.')
+      return
+    }
+
+    const arrendador = {
+      nombre: user.nombre,
+      email: user.email,
+      telefono: user.telefono || null,
+    }
+    const nuevasFotos = form.fotos.filter((f) => f instanceof File)
+
+    setGuardando(true)
+    try {
+      if (esEdicion) {
+        await updateProperty(id, form, nuevasFotos, arrendador)
+      } else {
+        await createProperty(form, nuevasFotos, arrendador)
+      }
+      setEnviado(true)
+    } catch (err) {
+      setError(err.message || 'Ocurrió un error al guardar. Revisa tu conexión con Supabase.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   const sectores = form.ciudad ? sectoresPorCiudad[form.ciudad] || [] : []
+
+  if (cargando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-400">
+        <Loader2 className="animate-spin mr-2" size={20} /> Cargando inmueble...
+      </div>
+    )
+  }
 
   if (enviado) {
     return (
@@ -56,22 +138,20 @@ export default function PublishProperty({ user }) {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={32} className="text-green-500" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">¡Solicitud enviada!</h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">
+            {esEdicion ? '¡Cambios guardados!' : '¡Inmueble publicado!'}
+          </h2>
           <p className="text-gray-500 text-sm mb-6">
-            Tu inmueble ha sido enviado para revisión por el municipio. Recibirás confirmación en un plazo de 48-72 horas hábiles.
+            {esEdicion
+              ? 'Tu inmueble se actualizó correctamente.'
+              : 'Tu inmueble fue registrado y enviado para revisión por el municipio. Ya puedes gestionarlo desde “Mis propiedades”.'}
           </p>
-          <div className="bg-amber-50 rounded-xl p-4 text-left text-sm text-amber-700 mb-6">
-            <p className="font-semibold mb-1">Próximos pasos:</p>
-            <ol className="list-decimal list-inside space-y-1 text-xs">
-              <li>El municipio verificará tu identidad y documentos</li>
-              <li>Se revisará la información del inmueble</li>
-              <li>Recibirás aprobación o comentarios para corrección</li>
-              <li>Tu inmueble aparecerá publicado en la plataforma</li>
-            </ol>
+          <div className="flex flex-col gap-2">
+            <Link to="/mis-propiedades" className="bg-primary-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-primary-700 inline-block">
+              Ir a mis propiedades
+            </Link>
+            <Link to="/" className="text-primary-600 text-sm hover:underline">Ver todos los inmuebles</Link>
           </div>
-          <Link to="/" className="bg-primary-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-primary-700 inline-block">
-            Ver todos los inmuebles
-          </Link>
         </div>
       </div>
     )
@@ -80,13 +160,19 @@ export default function PublishProperty({ user }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <Link to="/" className="flex items-center gap-1 text-primary-600 hover:text-primary-800 text-sm mb-6">
+        <Link to={esEdicion ? '/mis-propiedades' : '/'} className="flex items-center gap-1 text-primary-600 hover:text-primary-800 text-sm mb-6">
           <ArrowLeft size={16} /> Volver
         </Link>
 
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Publicar inmueble</h1>
-          <p className="text-gray-500 text-sm mt-1">Completa la información para enviar tu inmueble a verificación municipal.</p>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {esEdicion ? 'Editar inmueble' : 'Publicar inmueble'}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {esEdicion
+              ? 'Actualiza la información de tu inmueble.'
+              : 'Completa la información para enviar tu inmueble a verificación municipal.'}
+          </p>
         </div>
 
         {/* Indicador de pasos */}
@@ -262,31 +348,47 @@ export default function PublishProperty({ user }) {
                 <h2 className="font-semibold text-gray-700 text-base">Fotos del inmueble</h2>
                 <p className="text-sm text-gray-500">Mínimo 3 fotos reales del inmueble. Las fotos de stock o no representativas serán rechazadas.</p>
 
-                <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={agregarFotos}
+                />
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-primary-300 transition-colors cursor-pointer"
+                >
                   <Upload size={32} className="mx-auto text-gray-300 mb-3" />
-                  <p className="text-sm font-medium text-gray-600">Arrastra fotos aquí o haz clic para seleccionar</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG, PNG hasta 5MB c/u · Mínimo 3 fotos</p>
-                  <p className="text-xs text-primary-500 mt-3 font-medium">(En el prototipo esta función es simulada)</p>
+                  <p className="text-sm font-medium text-gray-600">Haz clic para seleccionar fotos</p>
+                  <p className="text-xs text-gray-400 mt-1">JPG, PNG, WEBP hasta 5MB c/u · Mínimo 3 fotos</p>
                 </div>
 
-                {/* Fotos de muestra */}
+                {/* Fotos seleccionadas */}
                 <div className="grid grid-cols-3 gap-3">
-                  {[
-                    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80',
-                    'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=80',
-                    'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400&q=80',
-                  ].map((url, i) => (
+                  {form.fotos.map((foto, i) => (
                     <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                      <button className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600">
+                      <img src={previewUrl(foto)} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => quitarFoto(i)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+                      >
                         <X size={12} />
                       </button>
                     </div>
                   ))}
-                  <div className="aspect-square rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center hover:border-primary-300 cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center hover:border-primary-300 cursor-pointer"
+                  >
                     <PlusCircle size={24} className="text-gray-300" />
-                  </div>
+                  </button>
                 </div>
+                <p className="text-xs text-gray-400">{form.fotos.length} foto(s) seleccionada(s)</p>
 
                 <div className="bg-amber-50 rounded-xl p-4 text-xs text-amber-700">
                   <p className="font-semibold mb-1">Al enviar este formulario confirmas que:</p>
@@ -298,6 +400,12 @@ export default function PublishProperty({ user }) {
                   </ul>
                 </div>
               </>
+            )}
+
+            {error && (
+              <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                <AlertTriangle size={15} /> {error}
+              </p>
             )}
           </div>
 
@@ -326,10 +434,11 @@ export default function PublishProperty({ user }) {
             ) : (
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2"
+                disabled={guardando}
+                className="px-6 py-2.5 bg-green-500 hover:bg-green-600 disabled:opacity-60 text-white rounded-xl text-sm font-semibold flex items-center gap-2"
               >
-                <CheckCircle size={16} />
-                Enviar para verificación
+                {guardando ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                {guardando ? 'Guardando...' : esEdicion ? 'Guardar cambios' : 'Publicar inmueble'}
               </button>
             )}
           </div>

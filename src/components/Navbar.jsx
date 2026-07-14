@@ -1,8 +1,7 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Home, PlusCircle, LogIn, LogOut, User, Shield } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2 } from 'lucide-react'
 
 export default function Navbar({ user, onLogout }) {
-  const navigate = useNavigate()
 
   return (
     <nav className="bg-primary-700 text-white shadow-lg sticky top-0 z-50">
@@ -28,10 +27,16 @@ export default function Navbar({ user, onLogout }) {
                   </Link>
                 )}
                 {user.rol === 'arrendador' && (
-                  <Link to="/publicar" className="flex items-center gap-1 bg-accent-500 hover:bg-accent-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-                    <PlusCircle size={16} />
-                    <span>Publicar</span>
-                  </Link>
+                  <>
+                    <Link to="/mis-propiedades" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
+                      <Building2 size={16} />
+                      <span className="hidden sm:inline">Mis propiedades</span>
+                    </Link>
+                    <Link to="/publicar" className="flex items-center gap-1 bg-accent-500 hover:bg-accent-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
+                      <PlusCircle size={16} />
+                      <span>Publicar</span>
+                    </Link>
+                  </>
                 )}
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1 text-sm text-blue-200">
