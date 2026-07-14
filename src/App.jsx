@@ -8,6 +8,8 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import PublishProperty from './pages/PublishProperty'
 import MyProperties from './pages/MyProperties'
+import Solicitudes from './pages/Solicitudes'
+import Contratos from './pages/Contratos'
 import AdminPanel from './pages/AdminPanel'
 
 export default function App() {
@@ -43,6 +45,24 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['arrendador']}>
                 <MyProperties />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Módulo 3: Gestión de Contratos */}
+          <Route
+            path="/solicitudes"
+            element={
+              <ProtectedRoute allowedRoles={['arrendador', 'arrendatario']}>
+                <Solicitudes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contratos"
+            element={
+              <ProtectedRoute allowedRoles={['arrendador', 'arrendatario']}>
+                <Contratos />
               </ProtectedRoute>
             }
           />

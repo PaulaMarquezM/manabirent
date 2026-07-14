@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2 } from 'lucide-react'
+import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2, Inbox, FileText } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Navbar() {
@@ -44,9 +44,29 @@ export default function Navbar() {
                       <Building2 size={16} />
                       <span className="hidden sm:inline">Mis propiedades</span>
                     </Link>
+                    <Link to="/solicitudes" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
+                      <Inbox size={16} />
+                      <span className="hidden sm:inline">Solicitudes</span>
+                    </Link>
+                    <Link to="/contratos" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
+                      <FileText size={16} />
+                      <span className="hidden sm:inline">Contratos</span>
+                    </Link>
                     <Link to="/publicar" className="flex items-center gap-1 bg-accent-500 hover:bg-accent-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
                       <PlusCircle size={16} />
                       <span>Publicar</span>
+                    </Link>
+                  </>
+                )}
+                {user.rol === 'arrendatario' && (
+                  <>
+                    <Link to="/solicitudes" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
+                      <Inbox size={16} />
+                      <span className="hidden sm:inline">Mis solicitudes</span>
+                    </Link>
+                    <Link to="/contratos" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
+                      <FileText size={16} />
+                      <span className="hidden sm:inline">Mis contratos</span>
                     </Link>
                   </>
                 )}
