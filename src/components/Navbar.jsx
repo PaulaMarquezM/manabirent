@@ -1,7 +1,19 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
-export default function Navbar({ user, onLogout }) {
+export default function Navbar() {
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      navigate('/login')
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error)
+    }
+  }
 
   return (
     <nav className="bg-primary-700 text-white shadow-lg sticky top-0 z-50">
@@ -43,7 +55,7 @@ export default function Navbar({ user, onLogout }) {
                     <User size={14} />
                     {user.nombre}
                   </span>
-                  <button onClick={onLogout} className="flex items-center gap-1 hover:text-blue-200 text-sm">
+                  <button onClick={handleLogout} className="flex items-center gap-1 hover:text-blue-200 text-sm">
                     <LogOut size={14} />
                   </button>
                 </div>

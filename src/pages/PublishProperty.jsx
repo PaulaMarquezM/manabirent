@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Upload, CheckCircle, PlusCircle, X, Loader2, AlertTriangle } from 'lucide-react'
 import { ciudades, sectoresPorCiudad } from '../data/mockData'
 import { createProperty, updateProperty, getProperty } from '../lib/properties'
+import { useAuth } from '../context/AuthContext'
 
 const SERVICIOS_OPCIONES = [
   'WiFi', 'Agua caliente', 'Parqueadero', 'Cocina equipada', 'Cocina compartida',
@@ -23,7 +24,8 @@ const FORM_INICIAL = {
   fotos: [], // mezcla de strings (URLs existentes) y File (nuevas)
 }
 
-export default function PublishProperty({ user }) {
+export default function PublishProperty() {
+  const { user } = useAuth()
   const { id } = useParams() // si existe -> modo edición
   const esEdicion = Boolean(id)
   const fileInputRef = useRef(null)
@@ -100,9 +102,9 @@ export default function PublishProperty({ user }) {
     }
 
     const arrendador = {
+      id: user.id,
       nombre: user.nombre,
       email: user.email,
-      telefono: user.telefono || null,
     }
     const nuevasFotos = form.fotos.filter((f) => f instanceof File)
 

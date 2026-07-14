@@ -5,6 +5,7 @@ import {
   CheckCircle, Wrench, KeyRound,
 } from 'lucide-react'
 import { listProperties, setEstado, deleteProperty } from '../lib/properties'
+import { useAuth } from '../context/AuthContext'
 
 // RF-05: metadatos de cada estado operativo
 const ESTADOS = {
@@ -19,7 +20,8 @@ const VERIFICACION = {
   rechazada: { label: 'Rechazada', color: 'text-red-600' },
 }
 
-export default function MyProperties({ user }) {
+export default function MyProperties() {
+  const { user } = useAuth()
   const [propiedades, setPropiedades] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')

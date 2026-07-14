@@ -94,6 +94,7 @@ export async function createProperty(form, fotos = [], arrendador = {}) {
     fotos: fotosUrls,
     estado: 'disponible',
     verificacion: 'pendiente',
+    arrendador_id: arrendador.id || null,
     arrendador_nombre: arrendador.nombre || null,
     arrendador_email: arrendador.email || null,
     arrendador_telefono: arrendador.telefono || null,
