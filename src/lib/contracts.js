@@ -233,20 +233,36 @@ export async function rechazarSolicitud(solicitud, respuesta = null, arrendadorI
  * @param {string} userId - auth.uid
  */
 export async function listContratos(rol, userId) {
+  if (!['arrendador', 'arrendatario'].includes(rol)) {
+    throw new Error('Rol inválido para consultar contratos.')
+  }
+  if (!userId) {
+    throw new Error('Debes iniciar sesión para consultar el historial contractual.')
+  }
+
   const columna = rol === 'arrendador' ? 'arrendador_id' : 'arrendatario_id'
   const { data, error } = await supabase
     .from('contratos')
     .select('*')
     .eq(columna, userId)
-    .order('created_at', { ascending: false })
   if (error) throw error
-  return data || []
+
+  return (data || []).sort((a, b) => {
+    const fechaA = a.created_at || a.fecha_inicio || ''
+    const fechaB = b.created_at || b.fecha_inicio || ''
+    return String(fechaB).localeCompare(String(fechaA))
+  })
 }
 
 /**
  * Finaliza un contrato vigente y libera la propiedad (vuelve a 'disponible').
  */
 export async function finalizarContrato(contrato) {
+  if (!contrato?.id) throw new Error('Contrato inválido.')
+  if (contrato.estado !== 'vigente') {
+    throw new Error('Solo se pueden finalizar contratos vigentes.')
+  }
+
   const { data, error } = await supabase
     .from('contratos')
     .update({ estado: 'finalizado' })
@@ -256,10 +272,11 @@ export async function finalizarContrato(contrato) {
   if (error) throw error
 
   if (contrato.propiedad_id) {
-    await supabase
+    const { error: errPropiedad } = await supabase
       .from('propiedades')
       .update({ estado: 'disponible' })
       .eq('id', contrato.propiedad_id)
+    if (errPropiedad) throw errPropiedad
   }
   return data
 }

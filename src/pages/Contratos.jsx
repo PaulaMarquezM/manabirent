@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  FileText, Loader2, AlertTriangle, CheckCircle, Archive, Eye, X, Printer,
+  FileText, Loader2, AlertTriangle, CheckCircle, Archive, Eye, X, Printer, Search,
+  Calendar, DollarSign,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { listContratos, finalizarContrato } from '../lib/contracts'
@@ -78,6 +79,7 @@ export default function Contratos() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [filtro, setFiltro] = useState('todos') // todos | vigente | finalizado
+  const [busqueda, setBusqueda] = useState('')
   const [ocupadoId, setOcupadoId] = useState(null)
   const [ficha, setFicha] = useState(null)
 
@@ -96,8 +98,8 @@ export default function Contratos() {
     setOcupadoId(contrato.id)
     setError('')
     try {
-      await finalizarContrato(contrato)
-      setContratos((lista) => lista.map((c) => (c.id === contrato.id ? { ...c, estado: 'finalizado' } : c)))
+      const data = await finalizarContrato(contrato)
+      setContratos((lista) => lista.map((c) => (c.id === contrato.id ? { ...c, ...data } : c)))
     } catch (e) {
       setError(e.message || 'No se pudo finalizar el contrato.')
     } finally {
@@ -107,37 +109,90 @@ export default function Contratos() {
 
   if (!user) return null
 
-  const visibles = filtro === 'todos' ? contratos : contratos.filter((c) => c.estado === filtro)
   const vigentes = contratos.filter((c) => c.estado === 'vigente').length
+  const finalizados = contratos.filter((c) => c.estado === 'finalizado').length
+  const canonVigente = contratos
+    .filter((c) => c.estado === 'vigente')
+    .reduce((total, c) => total + Number(c.precio_mensual || 0), 0)
+  const visibles = contratos.filter((c) => {
+    if (filtro !== 'todos' && c.estado !== filtro) return false
+    if (!busqueda.trim()) return true
+    const q = busqueda.toLowerCase()
+    return [
+      c.propiedad_titulo,
+      c.propiedad_sector,
+      c.propiedad_ciudad,
+      c.arrendador_nombre,
+      c.arrendatario_nombre,
+      c.arrendatario_email,
+    ].some((valor) => String(valor || '').toLowerCase().includes(q))
+  })
+  const etiquetaRol = esArrendador ? 'Arrendador' : 'Arrendatario'
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center gap-2 mb-1">
           <FileText size={22} className="text-primary-600" />
-          <h1 className="text-2xl font-bold text-gray-800">Mis contratos</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Historial contractual</h1>
         </div>
         <p className="text-gray-500 text-sm mb-6">
-          Historial contractual {esArrendador ? 'de tus inmuebles' : 'de tus arriendos'} · {vigentes} vigente(s).
+          Repositorio histórico {esArrendador ? 'de tus inmuebles arrendados' : 'de tus arriendos'}.
         </p>
 
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p className="text-xs text-gray-500 mb-1">Contratos vigentes</p>
+            <div className="flex items-center gap-2 text-green-700">
+              <CheckCircle size={18} />
+              <p className="text-2xl font-bold">{vigentes}</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p className="text-xs text-gray-500 mb-1">Contratos finalizados</p>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Archive size={18} />
+              <p className="text-2xl font-bold">{finalizados}</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p className="text-xs text-gray-500 mb-1">Canon vigente mensual</p>
+            <div className="flex items-center gap-2 text-primary-700">
+              <DollarSign size={18} />
+              <p className="text-2xl font-bold">${canonVigente}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Filtro */}
-        <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-5">
-          {[
-            { k: 'todos', l: 'Todos' },
-            { k: 'vigente', l: 'Vigentes' },
-            { k: 'finalizado', l: 'Finalizados' },
-          ].map((t) => (
-            <button
-              key={t.k}
-              onClick={() => setFiltro(t.k)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filtro === t.k ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t.l}
-            </button>
-          ))}
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-5">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+            {[
+              { k: 'todos', l: 'Todos' },
+              { k: 'vigente', l: 'Vigentes' },
+              { k: 'finalizado', l: 'Finalizados' },
+            ].map((t) => (
+              <button
+                key={t.k}
+                onClick={() => setFiltro(t.k)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  filtro === t.k ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {t.l}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 max-w-md flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
+            <Search size={16} className="text-gray-400" />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por inmueble, ciudad o persona..."
+              className="w-full outline-none text-sm text-gray-700"
+            />
+          </div>
         </div>
 
         {error && (
@@ -154,6 +209,7 @@ export default function Contratos() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
             <FileText size={40} className="mx-auto mb-3 opacity-40" />
             <p className="text-lg font-medium text-gray-600">No hay contratos que mostrar</p>
+            <p className="text-sm text-gray-400 mt-1">Prueba cambiando el filtro o la búsqueda.</p>
             {!esArrendador && (
               <Link to="/" className="text-primary-600 text-sm font-medium underline mt-2 inline-block">Explorar inmuebles</Link>
             )}
@@ -171,13 +227,24 @@ export default function Contratos() {
                       <h3 className="font-semibold text-gray-800">{c.propiedad_titulo}</h3>
                       <p className="text-xs text-gray-500 mt-0.5">{c.propiedad_sector}, {c.propiedad_ciudad} · ${c.precio_mensual}/mes</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {esArrendador ? `Arrendatario: ${c.arrendatario_nombre}` : `Arrendador: ${c.arrendador_nombre}`}
-                        {' · '}{c.fecha_inicio} → {c.fecha_fin}
+                        {etiquetaRol}: {esArrendador ? c.arrendatario_nombre : c.arrendador_nombre}
                       </p>
                     </div>
                     <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${meta.color}`}>
                       <EstadoIcon size={12} /> {meta.label}
                     </span>
+                  </div>
+
+                  <div className="mt-4 grid sm:grid-cols-3 gap-2 text-xs text-gray-500">
+                    <p className="flex items-center gap-1 bg-gray-50 rounded-lg px-3 py-2">
+                      <Calendar size={13} /> Inicio: {c.fecha_inicio || 'Sin fecha'}
+                    </p>
+                    <p className="flex items-center gap-1 bg-gray-50 rounded-lg px-3 py-2">
+                      <Calendar size={13} /> Fin: {c.fecha_fin || 'Sin fecha'}
+                    </p>
+                    <p className="flex items-center gap-1 bg-gray-50 rounded-lg px-3 py-2">
+                      <DollarSign size={13} /> Canon: ${c.precio_mensual}/mes
+                    </p>
                   </div>
 
                   <div className="flex items-center justify-end gap-2 mt-4">
