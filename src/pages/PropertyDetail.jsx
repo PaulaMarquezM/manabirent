@@ -1,7 +1,10 @@
-import { useState, Suspense, lazy } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, MapPin, Star, CheckCircle, Phone, Wifi, Car, Droplets, Clock, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useState, useEffect, Suspense, lazy } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { ArrowLeft, MapPin, Star, CheckCircle, Phone, Clock, FileText, ChevronLeft, ChevronRight, KeyRound, Loader2 } from 'lucide-react'
 import { properties } from '../data/mockData'
+import { getProperty } from '../lib/properties'
+import { useAuth } from '../context/AuthContext'
+import RequestRentalModal from '../components/RequestRentalModal'
 
 const MapView = lazy(() => import('../components/MapView'))
 
@@ -26,11 +29,57 @@ const servicioIcono = {
   'Baño privado': '🚿',
 }
 
+// Convierte una fila real de la tabla `propiedades` a la forma que espera esta
+// pantalla (que originalmente se diseñó para los datos mock).
+function normalizarPropiedadDB(row) {
+  return {
+    ...row,
+    title: row.titulo,
+    disponible: row.estado === 'disponible',
+    calificacion: 0,
+    num_resenas: 0,
+    resenas: [],
+    arrendador: {
+      nombre: row.arrendador_nombre || 'Arrendador',
+      telefono: row.arrendador_telefono || '',
+      verificado: row.verificacion === 'aprobada',
+      miembro_desde: row.created_at ? new Date(row.created_at).getFullYear().toString() : '',
+    },
+    _real: true,
+  }
+}
+
 export default function PropertyDetail() {
   const { id } = useParams()
-  const property = properties.find((p) => p.id === Number(id))
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const esUUID = Boolean(id && id.includes('-')) // los ids mock son numéricos
+
+  const [property, setProperty] = useState(
+    esUUID ? null : properties.find((p) => p.id === Number(id)) || null
+  )
+  const [cargando, setCargando] = useState(esUUID)
   const [fotoIdx, setFotoIdx] = useState(0)
   const [contratoVisible, setContratoVisible] = useState(false)
+  const [solicitarOpen, setSolicitarOpen] = useState(false)
+
+  useEffect(() => {
+    if (!esUUID) return
+    let activo = true
+    getProperty(id)
+      .then((row) => { if (activo) setProperty(normalizarPropiedadDB(row)) })
+      .catch(() => { if (activo) setProperty(null) })
+      .finally(() => { if (activo) setCargando(false) })
+    return () => { activo = false }
+  }, [id, esUUID])
+
+  if (cargando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-400">
+        <Loader2 className="animate-spin mr-2" size={20} /> Cargando inmueble...
+      </div>
+    )
+  }
 
   if (!property) {
     return (
@@ -43,6 +92,13 @@ export default function PropertyDetail() {
 
   const prevFoto = () => setFotoIdx((i) => (i === 0 ? property.fotos.length - 1 : i - 1))
   const nextFoto = () => setFotoIdx((i) => (i === property.fotos.length - 1 ? 0 : i + 1))
+
+  // ¿Puede este visitante solicitar el arriendo? (solo inmuebles reales disponibles)
+  const puedeSolicitar = property._real && property.disponible
+  const clicSolicitar = () => {
+    if (!user) return navigate('/login')
+    setSolicitarOpen(true)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -109,13 +165,15 @@ export default function PropertyDetail() {
               </div>
 
               <div className="flex items-center gap-4 mb-4">
-                <div className="flex items-center gap-1 text-amber-500">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} size={14} fill={i < Math.round(property.calificacion) ? 'currentColor' : 'none'} />
-                  ))}
-                  <span className="text-gray-700 font-semibold text-sm ml-1">{property.calificacion}</span>
-                  <span className="text-gray-400 text-xs">({property.num_resenas} reseñas)</span>
-                </div>
+                {property.num_resenas > 0 && (
+                  <div className="flex items-center gap-1 text-amber-500">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={14} fill={i < Math.round(property.calificacion) ? 'currentColor' : 'none'} />
+                    ))}
+                    <span className="text-gray-700 font-semibold text-sm ml-1">{property.calificacion}</span>
+                    <span className="text-gray-400 text-xs">({property.num_resenas} reseñas)</span>
+                  </div>
+                )}
                 {property.arrendador.verificado && (
                   <div className="flex items-center gap-1 text-green-600 text-xs font-medium">
                     <CheckCircle size={13} />
@@ -133,59 +191,67 @@ export default function PropertyDetail() {
             </div>
 
             {/* Servicios */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-              <h2 className="font-semibold text-gray-800 mb-3">Servicios incluidos</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {property.servicios.map((s) => (
-                  <div key={s} className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                    <span>{servicioIcono[s] || '✓'}</span>
-                    <span>{s}</span>
-                  </div>
-                ))}
+            {property.servicios?.length > 0 && (
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <h2 className="font-semibold text-gray-800 mb-3">Servicios incluidos</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {property.servicios.map((s) => (
+                    <div key={s} className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+                      <span>{servicioIcono[s] || '✓'}</span>
+                      <span>{s}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Reglas */}
-            <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
-              <h2 className="font-semibold text-amber-800 mb-2">Reglas de convivencia</h2>
-              <p className="text-amber-700 text-sm">{property.reglas}</p>
-            </div>
+            {property.reglas && (
+              <div className="bg-amber-50 rounded-xl p-5 border border-amber-100">
+                <h2 className="font-semibold text-amber-800 mb-2">Reglas de convivencia</h2>
+                <p className="text-amber-700 text-sm">{property.reglas}</p>
+              </div>
+            )}
 
             {/* Mapa */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-              <h2 className="font-semibold text-gray-800 mb-3">Ubicación</h2>
-              <div className="h-56 rounded-lg overflow-hidden">
-                <Suspense fallback={<div className="h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">Cargando mapa...</div>}>
-                  <MapView properties={[property]} center={[property.lat, property.lng]} zoom={15} />
-                </Suspense>
+            {property.lat && property.lng && (
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <h2 className="font-semibold text-gray-800 mb-3">Ubicación</h2>
+                <div className="h-56 rounded-lg overflow-hidden">
+                  <Suspense fallback={<div className="h-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">Cargando mapa...</div>}>
+                    <MapView properties={[property]} center={[property.lat, property.lng]} zoom={15} />
+                  </Suspense>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Reseñas */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-              <h2 className="font-semibold text-gray-800 mb-4">Reseñas de arrendatarios</h2>
-              <div className="space-y-4">
-                {property.resenas.map((r, i) => (
-                  <div key={i} className="border-b border-gray-50 last:border-0 pb-4 last:pb-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center font-semibold text-sm">
-                        {r.autor[0]}
+            {property.resenas?.length > 0 && (
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <h2 className="font-semibold text-gray-800 mb-4">Reseñas de arrendatarios</h2>
+                <div className="space-y-4">
+                  {property.resenas.map((r, i) => (
+                    <div key={i} className="border-b border-gray-50 last:border-0 pb-4 last:pb-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center font-semibold text-sm">
+                          {r.autor[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700">{r.autor}</p>
+                          <p className="text-xs text-gray-400">{r.fecha}</p>
+                        </div>
+                        <div className="ml-auto flex items-center gap-0.5 text-amber-400">
+                          {[...Array(5)].map((_, j) => (
+                            <Star key={j} size={11} fill={j < r.nota ? 'currentColor' : 'none'} />
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-700">{r.autor}</p>
-                        <p className="text-xs text-gray-400">{r.fecha}</p>
-                      </div>
-                      <div className="ml-auto flex items-center gap-0.5 text-amber-400">
-                        {[...Array(5)].map((_, j) => (
-                          <Star key={j} size={11} fill={j < r.nota ? 'currentColor' : 'none'} />
-                        ))}
-                      </div>
+                      <p className="text-sm text-gray-600 pl-10">{r.texto}</p>
                     </div>
-                    <p className="text-sm text-gray-600 pl-10">{r.texto}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Columna derecha - Contacto y Contrato */}
@@ -204,7 +270,9 @@ export default function PropertyDetail() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-800 text-sm">{property.arrendador.nombre}</p>
-                    <p className="text-xs text-gray-500">Miembro desde {property.arrendador.miembro_desde}</p>
+                    {property.arrendador.miembro_desde && (
+                      <p className="text-xs text-gray-500">Miembro desde {property.arrendador.miembro_desde}</p>
+                    )}
                   </div>
                 </div>
                 {property.arrendador.verificado && (
@@ -215,7 +283,18 @@ export default function PropertyDetail() {
                 )}
               </div>
 
-              {property.disponible ? (
+              {/* RF-06: Solicitar arriendo (solo inmuebles reales disponibles) */}
+              {puedeSolicitar && (!user || user.rol === 'arrendatario') && (
+                <button
+                  onClick={clicSolicitar}
+                  className="flex items-center justify-center gap-2 w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-semibold text-sm mb-3 transition-colors"
+                >
+                  <KeyRound size={16} />
+                  Solicitar arriendo
+                </button>
+              )}
+
+              {property.disponible && property.arrendador.telefono ? (
                 <a
                   href={`https://wa.me/593${property.arrendador.telefono.slice(1)}?text=Hola, vi tu inmueble "${property.title}" en ManabíRent y me interesa.`}
                   target="_blank"
@@ -225,11 +304,11 @@ export default function PropertyDetail() {
                   <Phone size={16} />
                   Contactar por WhatsApp
                 </a>
-              ) : (
+              ) : !property.disponible ? (
                 <div className="bg-gray-100 text-gray-400 py-3 rounded-xl text-center text-sm font-medium mb-3">
                   No disponible actualmente
                 </div>
-              )}
+              ) : null}
 
               <button
                 onClick={() => setContratoVisible(!contratoVisible)}
@@ -256,7 +335,7 @@ export default function PropertyDetail() {
                   <p><strong>UBICACIÓN:</strong> {property.sector}, {property.ciudad}, Manabí</p>
                   <p><strong>CANON MENSUAL:</strong> USD ${property.precio}</p>
                   <p><strong>PLAZO MÍNIMO:</strong> {property.min_meses} meses</p>
-                  <p><strong>SERVICIOS INCLUIDOS:</strong> {property.servicios.join(', ')}</p>
+                  <p><strong>SERVICIOS INCLUIDOS:</strong> {property.servicios?.join(', ')}</p>
                   <hr className="my-2" />
                   <p className="text-gray-500 italic">
                     El arrendatario y arrendador declaran conocer y aceptar las condiciones establecidas. Este contrato cumple con la Ley de Inquilinato del Ecuador y la LOPDP. Verificado por el Municipio de {property.ciudad}.
@@ -288,6 +367,14 @@ export default function PropertyDetail() {
           </div>
         </div>
       </div>
+
+      {solicitarOpen && user && (
+        <RequestRentalModal
+          propiedad={property}
+          arrendatario={{ id: user.id, nombre: user.nombre, email: user.email }}
+          onClose={() => setSolicitarOpen(false)}
+        />
+      )}
     </div>
   )
 }
