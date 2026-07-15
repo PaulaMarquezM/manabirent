@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Inbox, Send, CheckCircle, XCircle, Clock, Loader2, AlertTriangle,
-  Mail, Calendar, MessageSquare,
+  Mail, Calendar, MessageSquare, FileText, X, Printer,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -15,6 +15,105 @@ const ESTADO = {
   rechazada: { label: 'Rechazada', color: 'bg-red-100 text-red-700',    icon: XCircle },
 }
 
+function FichaContrato({ contrato, onClose }) {
+  return (
+    <div className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center px-4 py-6 overflow-y-auto" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <FileText size={16} className="text-primary-600" />
+            <h2 className="font-semibold text-gray-800 text-sm">Ficha digital del contrato</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        <div className="p-5">
+          <div className="bg-gray-50 rounded-lg p-5 text-xs text-gray-700 leading-relaxed space-y-2 font-mono">
+            <p className="text-center font-bold text-gray-800 text-sm">CONTRATO DE ARRENDAMIENTO</p>
+            <p className="text-center text-gray-500">ManabíRent — Prefectura de Manabí</p>
+            <p className="text-center text-gray-400">N.º {contrato.id.slice(0, 8).toUpperCase()}</p>
+            <hr className="my-2" />
+            <p><strong>ARRENDADOR:</strong> {contrato.arrendador_nombre}</p>
+            <p><strong>ARRENDATARIO:</strong> {contrato.arrendatario_nombre} ({contrato.arrendatario_email})</p>
+            <p><strong>INMUEBLE:</strong> {contrato.propiedad_titulo}</p>
+            <p><strong>UBICACIÓN:</strong> {contrato.propiedad_sector}, {contrato.propiedad_ciudad}, Manabí</p>
+            <p><strong>CANON MENSUAL:</strong> USD ${contrato.precio_mensual}</p>
+            <p><strong>VIGENCIA:</strong> {contrato.fecha_inicio} al {contrato.fecha_fin} ({contrato.meses} meses)</p>
+            <p><strong>ESTADO:</strong> VIGENTE</p>
+            <hr className="my-2" />
+            <p className="text-gray-500 italic">
+              Las partes declaran conocer y aceptar los términos del acuerdo. Esta ficha se genera digitalmente al aprobar
+              la solicitud de arriendo y queda disponible en el historial de contratos.
+            </p>
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              <div className="text-center">
+                <div className="border-t border-gray-400 pt-1 mt-6">
+                  <p>Arrendador</p>
+                  <p className="text-gray-400">{contrato.arrendador_nombre}</p>
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="border-t border-gray-400 pt-1 mt-6">
+                  <p>Arrendatario</p>
+                  <p className="text-gray-400">{contrato.arrendatario_nombre}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-100">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-xl">Cerrar</button>
+          <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold">
+            <Printer size={15} /> Imprimir / PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RechazarModal({ solicitud, ocupado, onCancel, onConfirm }) {
+  const [motivo, setMotivo] = useState('')
+
+  return (
+    <div className="fixed inset-0 z-[1000] bg-black/50 flex items-center justify-center px-4" onClick={onCancel}>
+      <form className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()} onSubmit={(e) => {
+        e.preventDefault()
+        onConfirm(motivo)
+      }}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <h2 className="font-bold text-gray-800">Rechazar solicitud</h2>
+          <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="bg-gray-50 rounded-xl p-3 text-sm">
+            <p className="font-semibold text-gray-800">{solicitud.propiedad_titulo}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{solicitud.arrendatario_nombre} — {solicitud.arrendatario_email}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1">Motivo o respuesta al arrendatario</label>
+            <textarea
+              rows={4}
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-primary-500 resize-none"
+              placeholder="Ej: El inmueble ya no está disponible o no cumple con las condiciones solicitadas."
+            />
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 p-5 border-t border-gray-100">
+          <button type="button" onClick={onCancel} className="px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 rounded-xl">Cancelar</button>
+          <button type="submit" disabled={ocupado} className="flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white rounded-xl text-sm font-semibold">
+            {ocupado ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
+            Rechazar
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function Solicitudes() {
   const { user } = useAuth()
   const esArrendador = user?.rol === 'arrendador'
@@ -24,6 +123,8 @@ export default function Solicitudes() {
   const [error, setError] = useState('')
   const [ocupadoId, setOcupadoId] = useState(null)
   const [aviso, setAviso] = useState('')
+  const [contratoGenerado, setContratoGenerado] = useState(null)
+  const [rechazoPendiente, setRechazoPendiente] = useState(null)
 
   useEffect(() => {
     if (!user) return
@@ -41,9 +142,17 @@ export default function Solicitudes() {
   const aprobar = async (solicitud) => {
     setOcupadoId(solicitud.id)
     setError('')
+    setAviso('')
     try {
-      await aprobarSolicitud(solicitud)
-      setSolicitudes((lista) => lista.map((s) => (s.id === solicitud.id ? { ...s, estado: 'aprobada' } : s)))
+      const contrato = await aprobarSolicitud(solicitud, user.id)
+      setContratoGenerado(contrato)
+      setSolicitudes((lista) => lista.map((s) => {
+        if (s.id === solicitud.id) return { ...s, estado: 'aprobada', respuesta: 'Solicitud aprobada. Se generó la ficha digital del contrato.' }
+        if (s.propiedad_id === solicitud.propiedad_id && s.estado === 'pendiente') {
+          return { ...s, estado: 'rechazada', respuesta: 'El inmueble ya fue asignado a otra solicitud aprobada.' }
+        }
+        return s
+      }))
       setAviso('Solicitud aprobada. Se generó la ficha del contrato y el inmueble quedó como arrendado.')
     } catch (e) {
       setError(e.message || 'No se pudo aprobar la solicitud.')
@@ -52,12 +161,15 @@ export default function Solicitudes() {
     }
   }
 
-  const rechazar = async (solicitud) => {
+  const rechazar = async (solicitud, motivo) => {
     setOcupadoId(solicitud.id)
     setError('')
+    setAviso('')
     try {
-      await rechazarSolicitud(solicitud.id)
-      setSolicitudes((lista) => lista.map((s) => (s.id === solicitud.id ? { ...s, estado: 'rechazada' } : s)))
+      const actualizada = await rechazarSolicitud(solicitud, motivo, user.id)
+      setSolicitudes((lista) => lista.map((s) => (s.id === solicitud.id ? actualizada : s)))
+      setRechazoPendiente(null)
+      setAviso('Solicitud rechazada. La respuesta quedó registrada para el arrendatario.')
     } catch (e) {
       setError(e.message || 'No se pudo rechazar la solicitud.')
     } finally {
@@ -146,7 +258,7 @@ export default function Solicitudes() {
                     <div className="flex items-center justify-end gap-2 mt-4">
                       <button
                         disabled={ocupado}
-                        onClick={() => rechazar(s)}
+                        onClick={() => setRechazoPendiente(s)}
                         className="flex items-center gap-1 px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-medium disabled:opacity-50"
                       >
                         <XCircle size={15} /> Rechazar
@@ -160,12 +272,30 @@ export default function Solicitudes() {
                       </button>
                     </div>
                   )}
+
+                  {s.respuesta && (
+                    <p className="mt-3 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                      Respuesta: {s.respuesta}
+                    </p>
+                  )}
                 </div>
               )
             })}
           </div>
         )}
       </div>
+
+      {contratoGenerado && (
+        <FichaContrato contrato={contratoGenerado} onClose={() => setContratoGenerado(null)} />
+      )}
+      {rechazoPendiente && (
+        <RechazarModal
+          solicitud={rechazoPendiente}
+          ocupado={ocupadoId === rechazoPendiente.id}
+          onCancel={() => setRechazoPendiente(null)}
+          onConfirm={(motivo) => rechazar(rechazoPendiente, motivo)}
+        />
+      )}
     </div>
   )
 }

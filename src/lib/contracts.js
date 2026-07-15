@@ -122,7 +122,23 @@ export async function listMisSolicitudes(arrendatarioId) {
  * como aprobada y pone la propiedad en estado 'arrendada'.
  * @returns {object} el contrato creado
  */
-export async function aprobarSolicitud(solicitud) {
+export async function aprobarSolicitud(solicitud, arrendadorId) {
+  if (!solicitud?.id) throw new Error('Solicitud inválida.')
+  if (solicitud.estado !== 'pendiente') {
+    throw new Error('Solo se pueden aprobar solicitudes pendientes.')
+  }
+  if (arrendadorId && solicitud.arrendador_id !== arrendadorId) {
+    throw new Error('Solo el arrendador del inmueble puede aprobar esta solicitud.')
+  }
+
+  const { data: existente, error: errExistente } = await supabase
+    .from('contratos')
+    .select('*')
+    .eq('solicitud_id', solicitud.id)
+    .maybeSingle()
+  if (errExistente) throw errExistente
+  if (existente) return existente
+
   const fechaInicio = solicitud.fecha_inicio || new Date().toISOString().slice(0, 10)
   const fechaFin = sumarMeses(fechaInicio, solicitud.meses)
 
@@ -156,26 +172,50 @@ export async function aprobarSolicitud(solicitud) {
   // 2) Marcar la solicitud como aprobada
   const { error: errSol } = await supabase
     .from('solicitudes')
-    .update({ estado: 'aprobada' })
+    .update({ estado: 'aprobada', respuesta: 'Solicitud aprobada. Se generó la ficha digital del contrato.' })
     .eq('id', solicitud.id)
   if (errSol) throw errSol
 
-  // 3) La propiedad pasa a 'arrendada'
+  // 3) Rechazar las otras solicitudes pendientes del mismo inmueble.
   if (solicitud.propiedad_id) {
-    await supabase
+    const { error: errOtras } = await supabase
+      .from('solicitudes')
+      .update({
+        estado: 'rechazada',
+        respuesta: 'El inmueble ya fue asignado a otra solicitud aprobada.',
+      })
+      .eq('propiedad_id', solicitud.propiedad_id)
+      .eq('estado', 'pendiente')
+      .neq('id', solicitud.id)
+    if (errOtras) throw errOtras
+  }
+
+  // 4) La propiedad pasa a 'arrendada'
+  if (solicitud.propiedad_id) {
+    const { error: errPropiedad } = await supabase
       .from('propiedades')
       .update({ estado: 'arrendada' })
       .eq('id', solicitud.propiedad_id)
+    if (errPropiedad) throw errPropiedad
   }
 
   return contratoCreado
 }
 
 /** Rechaza una solicitud, con nota opcional. */
-export async function rechazarSolicitud(id, respuesta = null) {
+export async function rechazarSolicitud(solicitud, respuesta = null, arrendadorId = null) {
+  const id = typeof solicitud === 'string' ? solicitud : solicitud?.id
+  if (!id) throw new Error('Solicitud inválida.')
+  if (typeof solicitud === 'object' && solicitud.estado !== 'pendiente') {
+    throw new Error('Solo se pueden rechazar solicitudes pendientes.')
+  }
+  if (typeof solicitud === 'object' && arrendadorId && solicitud.arrendador_id !== arrendadorId) {
+    throw new Error('Solo el arrendador del inmueble puede rechazar esta solicitud.')
+  }
+
   const { data, error } = await supabase
     .from('solicitudes')
-    .update({ estado: 'rechazada', respuesta })
+    .update({ estado: 'rechazada', respuesta: respuesta || 'Solicitud rechazada por el arrendador.' })
     .eq('id', id)
     .select()
     .single()
