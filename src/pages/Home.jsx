@@ -1,12 +1,15 @@
-import { useState, useMemo, Suspense, lazy } from 'react'
-import { Search, SlidersHorizontal, Map, Grid, X, ChevronDown } from 'lucide-react'
-import { properties, ciudades, tiposInmueble } from '../data/mockData'
+import { useState, useMemo, Suspense, lazy, useEffect } from 'react'
+import { Search, SlidersHorizontal, Map, Grid, X, Loader2 } from 'lucide-react'
+import { properties as mockProperties, ciudades } from '../data/mockData'
+import { listProperties, normalizarPropiedad } from '../lib/properties'
 import PropertyCard from '../components/PropertyCard'
 
 const MapView = lazy(() => import('../components/MapView'))
 
 export default function Home() {
   const [vista, setVista] = useState('grid')
+  const [propiedades, setPropiedades] = useState([])
+  const [cargando, setCargando] = useState(true)
   const [filtros, setFiltros] = useState({
     busqueda: '',
     ciudad: '',
@@ -16,19 +19,41 @@ export default function Home() {
   })
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
 
+  useEffect(() => {
+    let activo = true
+    listProperties()
+      .then((data) => {
+        if (!activo) return
+        const reales = data.map(normalizarPropiedad)
+        setPropiedades(reales.length ? reales : mockProperties.map(normalizarPropiedad))
+      })
+      .catch((e) => {
+        console.warn('No se pudieron cargar inmuebles reales; usando datos de ejemplo.', e)
+        if (activo) setPropiedades(mockProperties.map(normalizarPropiedad))
+      })
+      .finally(() => {
+        if (activo) setCargando(false)
+      })
+    return () => { activo = false }
+  }, [])
+
   const propiedadesFiltradas = useMemo(() => {
-    return properties.filter((p) => {
+    return propiedades.filter((p) => {
       if (filtros.soloDisponibles && !p.disponible) return false
       if (filtros.ciudad && p.ciudad !== filtros.ciudad) return false
       if (filtros.tipo && p.tipo !== filtros.tipo) return false
       if (filtros.precioMax && p.precio > Number(filtros.precioMax)) return false
       if (filtros.busqueda) {
         const q = filtros.busqueda.toLowerCase()
-        return p.title.toLowerCase().includes(q) || p.sector.toLowerCase().includes(q) || p.ciudad.toLowerCase().includes(q)
+        return (
+          p.title?.toLowerCase().includes(q) ||
+          p.sector?.toLowerCase().includes(q) ||
+          p.ciudad?.toLowerCase().includes(q)
+        )
       }
       return true
     })
-  }, [filtros])
+  }, [filtros, propiedades])
 
   const limpiarFiltros = () => setFiltros({ busqueda: '', ciudad: '', tipo: '', precioMax: '', soloDisponibles: true })
 
@@ -157,7 +182,11 @@ export default function Home() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {vista === 'grid' ? (
+        {cargando ? (
+          <div className="flex items-center justify-center py-20 text-gray-400">
+            <Loader2 className="animate-spin mr-2" size={20} /> Cargando inmuebles...
+          </div>
+        ) : vista === 'grid' ? (
           propiedadesFiltradas.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {propiedadesFiltradas.map((p) => (

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X, CheckCircle, Loader2, AlertTriangle, Send } from 'lucide-react'
-import { createSolicitud } from '../lib/contracts'
+import { createSolicitud, solicitudExistente } from '../lib/contracts'
 
 export default function RequestRentalModal({ propiedad, arrendatario, onClose }) {
   const hoy = new Date().toISOString().slice(0, 10)
@@ -10,12 +10,33 @@ export default function RequestRentalModal({ propiedad, arrendatario, onClose })
     mensaje: '',
   })
   const [enviando, setEnviando] = useState(false)
+  const [verificando, setVerificando] = useState(true)
+  const [solicitudActiva, setSolicitudActiva] = useState(null)
   const [error, setError] = useState('')
   const [ok, setOk] = useState(false)
+
+  useEffect(() => {
+    let activo = true
+    solicitudExistente(propiedad.id, arrendatario.id)
+      .then((data) => {
+        if (activo) setSolicitudActiva(data)
+      })
+      .catch((err) => {
+        if (activo) setError(err.message || 'No se pudo validar si ya existe una solicitud.')
+      })
+      .finally(() => {
+        if (activo) setVerificando(false)
+      })
+    return () => { activo = false }
+  }, [propiedad.id, arrendatario.id])
 
   const enviar = async (e) => {
     e.preventDefault()
     setError('')
+    if (solicitudActiva) {
+      setError('Ya tienes una solicitud pendiente o aprobada para este inmueble.')
+      return
+    }
     setEnviando(true)
     try {
       await createSolicitud(propiedad, arrendatario, form)
@@ -102,6 +123,12 @@ export default function RequestRentalModal({ propiedad, arrendatario, onClose })
                   <AlertTriangle size={15} /> {error}
                 </p>
               )}
+
+              {solicitudActiva && (
+                <p className="text-amber-700 text-sm bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <AlertTriangle size={15} /> Ya tienes una solicitud {solicitudActiva.estado} para este inmueble.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 p-5 border-t border-gray-100">
@@ -110,11 +137,11 @@ export default function RequestRentalModal({ propiedad, arrendatario, onClose })
               </button>
               <button
                 type="submit"
-                disabled={enviando}
+                disabled={enviando || verificando || Boolean(solicitudActiva)}
                 className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold"
               >
-                {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {enviando ? 'Enviando...' : 'Enviar solicitud'}
+                {enviando || verificando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                {verificando ? 'Validando...' : enviando ? 'Enviando...' : 'Enviar solicitud'}
               </button>
             </div>
           </form>

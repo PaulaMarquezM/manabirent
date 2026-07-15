@@ -14,6 +14,27 @@ function conDisponible(row) {
   return { ...row, disponible: row.estado === 'disponible' }
 }
 
+// Adapta una fila real de Supabase a la forma que consumen las tarjetas,
+// mapas y pantallas que nacieron con datos mock.
+export function normalizarPropiedad(row) {
+  if (!row) return row
+  return {
+    ...row,
+    title: row.titulo || row.title,
+    disponible: typeof row.disponible === 'boolean' ? row.disponible : row.estado === 'disponible',
+    calificacion: row.calificacion ?? 0,
+    num_resenas: row.num_resenas ?? 0,
+    resenas: row.resenas || [],
+    arrendador: row.arrendador || {
+      nombre: row.arrendador_nombre || 'Arrendador',
+      telefono: row.arrendador_telefono || '',
+      verificado: row.verificacion === 'aprobada',
+      miembro_desde: row.created_at ? new Date(row.created_at).getFullYear().toString() : '',
+    },
+    _real: Boolean(row.titulo || row._real),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Subida de fotos a Storage
 // ---------------------------------------------------------------------------
@@ -48,7 +69,6 @@ export async function listProperties({ arrendadorEmail } = {}) {
   let query = supabase
     .from('propiedades')
     .select('*')
-    .order('created_at', { ascending: false })
 
   if (arrendadorEmail) query = query.eq('arrendador_email', arrendadorEmail)
 

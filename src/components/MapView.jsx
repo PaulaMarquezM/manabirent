@@ -1,5 +1,4 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
-import { Link } from 'react-router-dom'
 import L from 'leaflet'
 
 delete L.Icon.Default.prototype._getIconUrl
@@ -9,20 +8,16 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-const propertyIcon = new L.DivIcon({
-  html: `<div class="bg-primary-700 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-lg whitespace-nowrap border-2 border-white" style="background:#1d6fa4;color:white;font-size:12px;font-weight:bold;padding:4px 8px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;">$</div>`,
-  className: '',
-  iconAnchor: [20, 10],
-})
-
 export default function MapView({ properties, center = [-1.0, -80.6], zoom = 9 }) {
+  const propertiesWithLocation = properties.filter((p) => p.lat && p.lng)
+
   return (
     <MapContainer center={center} zoom={zoom} className="w-full h-full" style={{ minHeight: '400px' }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {properties.map((p) => (
+      {propertiesWithLocation.map((p) => (
         <Marker key={p.id} position={[p.lat, p.lng]} icon={new L.DivIcon({
           html: `<div style="background:#1d6fa4;color:white;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;white-space:nowrap;">$${p.precio}</div>`,
           className: '',

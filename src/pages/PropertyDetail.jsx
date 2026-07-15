@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, lazy } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, Star, CheckCircle, Phone, Clock, FileText, ChevronLeft, ChevronRight, KeyRound, Loader2 } from 'lucide-react'
 import { properties } from '../data/mockData'
-import { getProperty } from '../lib/properties'
+import { getProperty, normalizarPropiedad } from '../lib/properties'
 import { useAuth } from '../context/AuthContext'
 import RequestRentalModal from '../components/RequestRentalModal'
 
@@ -29,26 +29,6 @@ const servicioIcono = {
   'Baño privado': '🚿',
 }
 
-// Convierte una fila real de la tabla `propiedades` a la forma que espera esta
-// pantalla (que originalmente se diseñó para los datos mock).
-function normalizarPropiedadDB(row) {
-  return {
-    ...row,
-    title: row.titulo,
-    disponible: row.estado === 'disponible',
-    calificacion: 0,
-    num_resenas: 0,
-    resenas: [],
-    arrendador: {
-      nombre: row.arrendador_nombre || 'Arrendador',
-      telefono: row.arrendador_telefono || '',
-      verificado: row.verificacion === 'aprobada',
-      miembro_desde: row.created_at ? new Date(row.created_at).getFullYear().toString() : '',
-    },
-    _real: true,
-  }
-}
-
 export default function PropertyDetail() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -67,7 +47,7 @@ export default function PropertyDetail() {
     if (!esUUID) return
     let activo = true
     getProperty(id)
-      .then((row) => { if (activo) setProperty(normalizarPropiedadDB(row)) })
+      .then((row) => { if (activo) setProperty(normalizarPropiedad(row)) })
       .catch(() => { if (activo) setProperty(null) })
       .finally(() => { if (activo) setCargando(false) })
     return () => { activo = false }
@@ -93,10 +73,12 @@ export default function PropertyDetail() {
   const prevFoto = () => setFotoIdx((i) => (i === 0 ? property.fotos.length - 1 : i - 1))
   const nextFoto = () => setFotoIdx((i) => (i === property.fotos.length - 1 ? 0 : i + 1))
 
-  // ¿Puede este visitante solicitar el arriendo? (solo inmuebles reales disponibles)
-  const puedeSolicitar = property._real && property.disponible
+  // RF-06: solo arrendatarios pueden solicitar inmuebles reales y disponibles.
+  const puedeVerAccionSolicitud = property.disponible && (!user || user.rol === 'arrendatario')
+  const puedeSolicitar = property._real && puedeVerAccionSolicitud
   const clicSolicitar = () => {
     if (!user) return navigate('/login')
+    if (!property._real || user.rol !== 'arrendatario' || !property.disponible) return
     setSolicitarOpen(true)
   }
 
@@ -284,7 +266,7 @@ export default function PropertyDetail() {
               </div>
 
               {/* RF-06: Solicitar arriendo (solo inmuebles reales disponibles) */}
-              {puedeSolicitar && (!user || user.rol === 'arrendatario') && (
+              {puedeSolicitar && (
                 <button
                   onClick={clicSolicitar}
                   className="flex items-center justify-center gap-2 w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-semibold text-sm mb-3 transition-colors"
@@ -292,6 +274,22 @@ export default function PropertyDetail() {
                   <KeyRound size={16} />
                   Solicitar arriendo
                 </button>
+              )}
+
+              {!property._real && puedeVerAccionSolicitud && (
+                <>
+                  <button
+                    type="button"
+                    disabled
+                    className="flex items-center justify-center gap-2 w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-semibold text-sm mb-2 cursor-not-allowed"
+                  >
+                    <KeyRound size={16} />
+                    Solicitar arriendo
+                  </button>
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
+                    Este inmueble es de ejemplo. La solicitud formal se habilita en inmuebles publicados en Supabase.
+                  </p>
+                </>
               )}
 
               {property.disponible && property.arrendador.telefono ? (
@@ -371,7 +369,7 @@ export default function PropertyDetail() {
       {solicitarOpen && user && (
         <RequestRentalModal
           propiedad={property}
-          arrendatario={{ id: user.id, nombre: user.nombre, email: user.email }}
+          arrendatario={{ id: user.id, nombre: user.nombre, email: user.email, telefono: user.telefono, rol: user.rol }}
           onClose={() => setSolicitarOpen(false)}
         />
       )}

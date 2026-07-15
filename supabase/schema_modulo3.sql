@@ -44,6 +44,9 @@ create table if not exists public.solicitudes (
 create index if not exists solicitudes_arrendador_idx   on public.solicitudes (arrendador_id);
 create index if not exists solicitudes_arrendatario_idx on public.solicitudes (arrendatario_id);
 create index if not exists solicitudes_propiedad_idx    on public.solicitudes (propiedad_id);
+create unique index if not exists solicitudes_unica_activa_idx
+  on public.solicitudes (propiedad_id, arrendatario_id)
+  where estado in ('pendiente', 'aprobada');
 
 -- ---------------------------------------------------------------------------
 -- 2) Contratos = ficha digital (RF-07 / RF-08)

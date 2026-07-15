@@ -14,10 +14,35 @@ function sumarMeses(fechaISO, meses) {
 /**
  * Crea una solicitud de arriendo para una propiedad.
  * @param {object} propiedad - fila de la tabla propiedades (real, con UUID)
- * @param {object} arrendatario - { id, nombre, email, telefono }
+ * @param {object} arrendatario - { id, nombre, email, telefono, rol }
  * @param {object} datos - { fecha_inicio, meses, mensaje }
  */
 export async function createSolicitud(propiedad, arrendatario, datos) {
+  if (!arrendatario?.id) {
+    throw new Error('Debes iniciar sesión como arrendatario para enviar una solicitud.')
+  }
+
+  if (arrendatario.rol && arrendatario.rol !== 'arrendatario') {
+    throw new Error('Solo los arrendatarios pueden enviar solicitudes de arriendo.')
+  }
+
+  if (!propiedad?._real && !String(propiedad?.id || '').includes('-')) {
+    throw new Error('Solo se pueden solicitar inmuebles registrados en la plataforma.')
+  }
+
+  if (propiedad.estado && propiedad.estado !== 'disponible') {
+    throw new Error('Este inmueble no está disponible para recibir solicitudes.')
+  }
+
+  if (propiedad.disponible === false) {
+    throw new Error('Este inmueble no está disponible para recibir solicitudes.')
+  }
+
+  const existente = await solicitudExistente(propiedad.id, arrendatario.id)
+  if (existente) {
+    throw new Error('Ya tienes una solicitud pendiente o aprobada para este inmueble.')
+  }
+
   const registro = {
     propiedad_id: propiedad.id,
     arrendador_id: propiedad.arrendador_id || null,
@@ -56,6 +81,7 @@ export async function solicitudExistente(propiedadId, arrendatarioId) {
     .eq('propiedad_id', propiedadId)
     .eq('arrendatario_id', arrendatarioId)
     .in('estado', ['pendiente', 'aprobada'])
+    .limit(1)
     .maybeSingle()
   if (error) throw error
   return data

@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
+// Este hook se exporta desde el mismo archivo por simplicidad del proyecto.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext)
 
 export const AuthProvider = ({ children }) => {
@@ -10,38 +12,42 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Obtener sesión actual
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let activo = true
+
+    const aplicarSesion = (session) => {
+      if (!activo) return
       if (session?.user) {
-        // Mapear los datos para que coincidan con la estructura esperada en la app
         setUser({
           id: session.user.id,
           email: session.user.email,
           nombre: session.user.user_metadata?.nombre,
           rol: session.user.user_metadata?.rol,
+          telefono: session.user.user_metadata?.telefono,
         })
       } else {
         setUser(null)
       }
       setLoading(false)
-    })
+    }
+
+    // Obtener sesión actual
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => aplicarSesion(session))
+      .catch((error) => {
+        console.error('Error al obtener la sesión:', error)
+        aplicarSesion(null)
+      })
 
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          nombre: session.user.user_metadata?.nombre,
-          rol: session.user.user_metadata?.rol,
-        })
-      } else {
-        setUser(null)
-      }
-      setLoading(false)
+      aplicarSesion(session)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      activo = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const login = async (email, password) => {
@@ -69,7 +75,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }
