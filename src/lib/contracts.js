@@ -280,3 +280,78 @@ export async function finalizarContrato(contrato) {
   }
   return data
 }
+
+// ---------------------------------------------------------------------------
+// RF-09 — Reporte de incidencias de mantenimiento
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista las incidencias registradas por un arrendatario.
+ */
+export async function listIncidenciasArrendatario(arrendatarioId) {
+  if (!arrendatarioId) {
+    throw new Error('Debes iniciar sesión para consultar tus reportes.')
+  }
+
+  const { data, error } = await supabase
+    .from('incidencias')
+    .select('*')
+    .eq('arrendatario_id', arrendatarioId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Registra un reporte de falla o solicitud de mantenimiento asociado a un
+ * contrato activo del arrendatario.
+ */
+export async function createIncidencia(contrato, arrendatario, datos) {
+  if (!arrendatario?.id) {
+    throw new Error('Debes iniciar sesión como arrendatario para registrar una incidencia.')
+  }
+
+  if (arrendatario.rol && arrendatario.rol !== 'arrendatario') {
+    throw new Error('Solo los arrendatarios pueden registrar incidencias.')
+  }
+
+  if (!contrato?.id) {
+    throw new Error('Selecciona un contrato válido.')
+  }
+
+  if (contrato.estado !== 'vigente') {
+    throw new Error('Solo se pueden reportar incidencias sobre contratos vigentes.')
+  }
+
+  if (contrato.arrendatario_id !== arrendatario.id) {
+    throw new Error('No puedes reportar incidencias sobre contratos de otro usuario.')
+  }
+
+  const registro = {
+    contrato_id: contrato.id,
+    propiedad_id: contrato.propiedad_id || null,
+    arrendador_id: contrato.arrendador_id || null,
+    arrendatario_id: arrendatario.id,
+
+    propiedad_titulo: contrato.propiedad_titulo || null,
+    propiedad_ciudad: contrato.propiedad_ciudad || null,
+    propiedad_sector: contrato.propiedad_sector || null,
+    arrendador_nombre: contrato.arrendador_nombre || null,
+    arrendatario_nombre: arrendatario.nombre || contrato.arrendatario_nombre || null,
+    arrendatario_email: arrendatario.email || contrato.arrendatario_email || null,
+
+    categoria: datos.categoria,
+    prioridad: datos.prioridad,
+    titulo: datos.titulo?.trim(),
+    descripcion: datos.descripcion?.trim(),
+    estado: 'reportada',
+  }
+
+  const { data, error } = await supabase
+    .from('incidencias')
+    .insert(registro)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}

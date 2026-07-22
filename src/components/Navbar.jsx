@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2, Inbox, FileText } from 'lucide-react'
+import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2, Inbox, FileText, Wrench } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Navbar() {
@@ -67,6 +67,10 @@ export default function Navbar() {
                     <Link to="/contratos" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
                       <FileText size={16} />
                       <span className="hidden sm:inline">Mis contratos</span>
+                    </Link>
+                    <Link to="/incidencias" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
+                      <Wrench size={16} />
+                      <span className="hidden sm:inline">Incidencias</span>
                     </Link>
                   </>
                 )}

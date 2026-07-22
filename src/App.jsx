@@ -10,6 +10,7 @@ import PublishProperty from './pages/PublishProperty'
 import MyProperties from './pages/MyProperties'
 import Solicitudes from './pages/Solicitudes'
 import Contratos from './pages/Contratos'
+import Incidencias from './pages/Incidencias'
 import AdminPanel from './pages/AdminPanel'
 
 export default function App() {
@@ -63,6 +64,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['arrendador', 'arrendatario']}>
                 <Contratos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/incidencias"
+            element={
+              <ProtectedRoute allowedRoles={['arrendatario']}>
+                <Incidencias />
               </ProtectedRoute>
             }
           />

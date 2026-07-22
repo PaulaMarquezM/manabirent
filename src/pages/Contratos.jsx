@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   FileText, Loader2, AlertTriangle, CheckCircle, Archive, Eye, X, Printer, Search,
-  Calendar, DollarSign,
+  Calendar, DollarSign, Wrench,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { listContratos, finalizarContrato } from '../lib/contracts'
@@ -254,6 +254,14 @@ export default function Contratos() {
                     >
                       <Eye size={14} /> Ver ficha
                     </button>
+                    {!esArrendador && c.estado === 'vigente' && (
+                      <Link
+                        to={`/incidencias?contrato=${c.id}`}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg text-xs font-medium"
+                      >
+                        <Wrench size={14} /> Reportar incidencia
+                      </Link>
+                    )}
                     {esArrendador && c.estado === 'vigente' && (
                       <button
                         disabled={ocupado}
