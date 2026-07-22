@@ -117,6 +117,15 @@ create index if not exists incidencias_arrendador_idx   on public.incidencias (a
 create index if not exists incidencias_arrendatario_idx on public.incidencias (arrendatario_id);
 create index if not exists incidencias_estado_idx       on public.incidencias (estado);
 
+-- Asegurar que la función set_updated_at existe (en caso de que no se haya corrido schema.sql)
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 drop trigger if exists incidencias_set_updated_at on public.incidencias;
 create trigger incidencias_set_updated_at
   before update on public.incidencias

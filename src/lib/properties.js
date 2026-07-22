@@ -65,12 +65,13 @@ export async function uploadFotos(files, carpeta = 'anon') {
 // ---------------------------------------------------------------------------
 
 /** Lista propiedades, opcionalmente filtradas por arrendador (email). */
-export async function listProperties({ arrendadorEmail } = {}) {
+export async function listProperties({ arrendadorEmail, incluirInactivas = false } = {}) {
   let query = supabase
     .from('propiedades')
     .select('*')
 
   if (arrendadorEmail) query = query.eq('arrendador_email', arrendadorEmail)
+  if (!arrendadorEmail && !incluirInactivas) query = query.eq('publicacion_activa', true)
 
   const { data, error } = await query
   if (error) throw error
@@ -114,6 +115,7 @@ export async function createProperty(form, fotos = [], arrendador = {}) {
     fotos: fotosUrls,
     estado: 'disponible',
     verificacion: 'pendiente',
+    publicacion_activa: true,
     arrendador_id: arrendador.id || null,
     arrendador_nombre: arrendador.nombre || null,
     arrendador_email: arrendador.email || null,

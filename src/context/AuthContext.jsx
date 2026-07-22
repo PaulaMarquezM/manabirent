@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
-// Este hook se exporta desde el mismo archivo por simplicidad del proyecto.
-// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext)
 
 export const AuthProvider = ({ children }) => {
@@ -14,32 +12,51 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let activo = true
 
-    const aplicarSesion = (session) => {
+    const aplicarSesion = async (session) => {
       if (!activo) return
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          nombre: session.user.user_metadata?.nombre,
-          rol: session.user.user_metadata?.rol,
-          telefono: session.user.user_metadata?.telefono,
-        })
+        try {
+          const { data: perfil, error } = await supabase
+            .from('perfiles')
+            .select('cuenta_activa, rol, nombre')
+            .eq('id', session.user.id)
+            .maybeSingle()
+            
+          if (error) throw error
+
+          if (perfil && !perfil.cuenta_activa) {
+            await supabase.auth.signOut()
+            if (activo) setUser(null)
+            setLoading(false)
+            return
+          }
+
+          if (!activo) return
+          
+          setUser({
+            id: session.user.id,
+            email: session.user.email,
+            nombre: perfil?.nombre || session.user.user_metadata?.nombre,
+            rol: perfil?.rol || session.user.user_metadata?.rol,
+            telefono: session.user.user_metadata?.telefono,
+          })
+        } catch (error) {
+          console.error('Error al validar el estado de la cuenta:', error)
+          if (activo) setUser(null)
+        }
       } else {
         setUser(null)
       }
       setLoading(false)
     }
 
-    // Obtener sesión actual
-    supabase.auth
-      .getSession()
+    supabase.auth.getSession()
       .then(({ data: { session } }) => aplicarSesion(session))
       .catch((error) => {
         console.error('Error al obtener la sesión:', error)
         aplicarSesion(null)
       })
 
-    // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       aplicarSesion(session)
     })
@@ -61,7 +78,7 @@ export const AuthProvider = ({ children }) => {
       email,
       password,
       options: {
-        data: metadata, // metadata incluye { nombre, cedula, rol }
+        data: metadata,
       },
     })
     if (error) throw error

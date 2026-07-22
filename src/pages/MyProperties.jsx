@@ -30,7 +30,7 @@ export default function MyProperties() {
   useEffect(() => {
     if (!user) return
     let activo = true
-    listProperties({ arrendadorEmail: user.email })
+    listProperties({ arrendadorEmail: user.email, incluirInactivas: true })
       .then((data) => { if (activo) setPropiedades(data) })
       .catch((e) => { if (activo) setError(e.message || 'No se pudieron cargar las propiedades.') })
       .finally(() => { if (activo) setCargando(false) })
