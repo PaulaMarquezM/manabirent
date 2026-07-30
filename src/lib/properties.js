@@ -35,6 +35,8 @@ export function normalizarPropiedad(row) {
   }
 }
 
+export const normalizeProperty = normalizarPropiedad
+
 // ---------------------------------------------------------------------------
 // Subida de fotos a Storage
 // ---------------------------------------------------------------------------
@@ -46,6 +48,9 @@ export function normalizarPropiedad(row) {
  * @returns {Promise<string[]>}
  */
 export async function uploadFotos(files, carpeta = 'anon') {
+  if (!carpeta || carpeta === 'anon') {
+    throw new Error('Debes iniciar sesión para subir fotografías')
+  }
   const urls = []
   for (const file of files) {
     const ext = file.name.split('.').pop()
@@ -78,6 +83,26 @@ export async function listProperties({ arrendadorEmail, incluirInactivas = false
   return (data || []).map(conDisponible)
 }
 
+/** Catálogo público: expone solamente campos seguros de la vista. */
+export async function listPublicProperties() {
+  const { data, error } = await supabase
+    .from('propiedades_publicas')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map(normalizarPropiedad)
+}
+
+export async function getPublicProperty(id) {
+  const { data, error } = await supabase
+    .from('propiedades_publicas')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return normalizarPropiedad(data)
+}
+
 /** Obtiene una propiedad por id. */
 export async function getProperty(id) {
   const { data, error } = await supabase
@@ -96,7 +121,7 @@ export async function getProperty(id) {
  * @param {object} arrendador - { nombre, email, telefono }
  */
 export async function createProperty(form, fotos = [], arrendador = {}) {
-  const carpeta = arrendador.email || 'anon'
+  const carpeta = arrendador.id
   const fotosUrls = fotos.length ? await uploadFotos(fotos, carpeta) : []
   const centro = CENTRO_CIUDAD[form.ciudad] || {}
 
@@ -135,7 +160,7 @@ export async function createProperty(form, fotos = [], arrendador = {}) {
  * Edita una propiedad. Si `nuevasFotos` trae File[], las sube y las concatena.
  */
 export async function updateProperty(id, form, nuevasFotos = [], arrendador = {}) {
-  const carpeta = arrendador.email || 'anon'
+  const carpeta = arrendador.id
   const nuevasUrls = nuevasFotos.length ? await uploadFotos(nuevasFotos, carpeta) : []
 
   const cambios = {

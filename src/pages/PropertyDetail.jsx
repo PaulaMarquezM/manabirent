@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, lazy } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, Star, CheckCircle, Phone, Clock, FileText, ChevronLeft, ChevronRight, KeyRound, Loader2 } from 'lucide-react'
 import { properties } from '../data/mockData'
-import { getProperty, normalizarPropiedad } from '../lib/properties'
+import { getPublicProperty } from '../lib/properties'
 import { useAuth } from '../context/AuthContext'
 import RequestRentalModal from '../components/RequestRentalModal'
 
@@ -46,8 +46,8 @@ export default function PropertyDetail() {
   useEffect(() => {
     if (!esUUID) return
     let activo = true
-    getProperty(id)
-      .then((row) => { if (activo) setProperty(normalizarPropiedad(row)) })
+    getPublicProperty(id)
+      .then((row) => { if (activo) setProperty(row) })
       .catch(() => { if (activo) setProperty(null) })
       .finally(() => { if (activo) setCargando(false) })
     return () => { activo = false }
@@ -73,12 +73,10 @@ export default function PropertyDetail() {
   const prevFoto = () => setFotoIdx((i) => (i === 0 ? property.fotos.length - 1 : i - 1))
   const nextFoto = () => setFotoIdx((i) => (i === property.fotos.length - 1 ? 0 : i + 1))
 
-  // RF-06: solo arrendatarios pueden solicitar inmuebles reales y disponibles.
-  const puedeVerAccionSolicitud = property.disponible && (!user || user.rol === 'arrendatario')
-  const puedeSolicitar = property._real && puedeVerAccionSolicitud
+  // ¿Puede este visitante solicitar el arriendo? (solo inmuebles reales disponibles)
+  const puedeSolicitar = property._real && property.disponible
   const clicSolicitar = () => {
     if (!user) return navigate('/login')
-    if (!property._real || user.rol !== 'arrendatario' || !property.disponible) return
     setSolicitarOpen(true)
   }
 
@@ -266,7 +264,7 @@ export default function PropertyDetail() {
               </div>
 
               {/* RF-06: Solicitar arriendo (solo inmuebles reales disponibles) */}
-              {puedeSolicitar && (
+              {puedeSolicitar && (!user || user.rol === 'arrendatario') && (
                 <button
                   onClick={clicSolicitar}
                   className="flex items-center justify-center gap-2 w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-semibold text-sm mb-3 transition-colors"
@@ -274,22 +272,6 @@ export default function PropertyDetail() {
                   <KeyRound size={16} />
                   Solicitar arriendo
                 </button>
-              )}
-
-              {!property._real && puedeVerAccionSolicitud && (
-                <>
-                  <button
-                    type="button"
-                    disabled
-                    className="flex items-center justify-center gap-2 w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-semibold text-sm mb-2 cursor-not-allowed"
-                  >
-                    <KeyRound size={16} />
-                    Solicitar arriendo
-                  </button>
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">
-                    Este inmueble es de ejemplo. La solicitud formal se habilita en inmuebles publicados en Supabase.
-                  </p>
-                </>
               )}
 
               {property.disponible && property.arrendador.telefono ? (
@@ -336,7 +318,7 @@ export default function PropertyDetail() {
                   <p><strong>SERVICIOS INCLUIDOS:</strong> {property.servicios?.join(', ')}</p>
                   <hr className="my-2" />
                   <p className="text-gray-500 italic">
-                    El arrendatario y arrendador declaran conocer y aceptar las condiciones establecidas. Este contrato cumple con la Ley de Inquilinato del Ecuador y la LOPDP. Verificado por el Municipio de {property.ciudad}.
+                    El arrendatario y arrendador declaran conocer y aceptar las condiciones establecidas. Este modelo contempla la Ley de Inquilinato del Ecuador y la LOPDP.{property.arrendador.verificado ? ` Inmueble verificado por el Municipio de ${property.ciudad}.` : ''}
                   </p>
                   <hr className="my-2" />
                   <div className="grid grid-cols-2 gap-4 mt-4">
@@ -369,7 +351,6 @@ export default function PropertyDetail() {
       {solicitarOpen && user && (
         <RequestRentalModal
           propiedad={property}
-          arrendatario={{ id: user.id, nombre: user.nombre, email: user.email, telefono: user.telefono, rol: user.rol }}
           onClose={() => setSolicitarOpen(false)}
         />
       )}

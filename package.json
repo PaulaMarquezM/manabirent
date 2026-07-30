@@ -9,6 +9,19 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "browserslist": {
+    "production": [
+      "> 0.5%",
+      "last 2 versions",
+      "not dead",
+      "Safari >= 13.1"
+    ],
+    "development": [
+      "last 1 Chrome version",
+      "last 1 Firefox version",
+      "last 1 Safari version"
+    ]
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.1",
     "leaflet": "^1.9.4",

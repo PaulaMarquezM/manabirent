@@ -3,6 +3,29 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
+async function loadAppUser(sessionUser) {
+  if (!sessionUser) return null
+  const { data: perfil, error } = await supabase
+    .from('perfiles')
+    .select('id, nombre, rol, cuenta_activa')
+    .eq('id', sessionUser.id)
+    .single()
+  if (error) throw error
+  if (!perfil.cuenta_activa) {
+    await supabase.auth.signOut()
+    throw new Error('Tu cuenta está inhabilitada. Contacta al administrador.')
+  }
+  return {
+    id: perfil.id,
+    email: sessionUser.email,
+    nombre: perfil.nombre,
+    rol: perfil.rol,
+    cuentaActiva: perfil.cuenta_activa,
+  }
+}
+
+// El hook comparte archivo con el proveedor para mantener una única instancia del contexto.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext)
 
 export const AuthProvider = ({ children }) => {
@@ -10,59 +33,42 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    let activo = true
-
-    const aplicarSesion = async (session) => {
-      if (!activo) return
-      if (session?.user) {
-        try {
-          const { data: perfil, error } = await supabase
-            .from('perfiles')
-            .select('cuenta_activa, rol, nombre')
-            .eq('id', session.user.id)
-            .maybeSingle()
-            
-          if (error) throw error
-
-          if (perfil && !perfil.cuenta_activa) {
-            await supabase.auth.signOut()
-            if (activo) setUser(null)
-            setLoading(false)
-            return
-          }
-
-          if (!activo) return
-          
-          setUser({
-            id: session.user.id,
-            email: session.user.email,
-            nombre: perfil?.nombre || session.user.user_metadata?.nombre,
-            rol: perfil?.rol || session.user.user_metadata?.rol,
-            telefono: session.user.user_metadata?.telefono,
-          })
-        } catch (error) {
-          console.error('Error al validar el estado de la cuenta:', error)
-          if (activo) setUser(null)
-        }
-      } else {
-        setUser(null)
+    // Obtener sesión actual
+    let mounted = true
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      try {
+        const appUser = await loadAppUser(session?.user)
+        if (mounted) setUser(appUser)
+      } catch {
+        if (mounted) setUser(null)
+      } finally {
+        if (mounted) setLoading(false)
       }
-      setLoading(false)
-    }
+    })
 
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => aplicarSesion(session))
-      .catch((error) => {
-        console.error('Error al obtener la sesión:', error)
-        aplicarSesion(null)
-      })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      aplicarSesion(session)
+    // Escuchar cambios de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session?.user) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+      if (event === 'TOKEN_REFRESHED') return
+      // La consulta se difiere para no bloquear el callback interno de Auth.
+      setTimeout(async () => {
+        try {
+          const appUser = await loadAppUser(session.user)
+          if (mounted) setUser(appUser)
+        } catch {
+          if (mounted) setUser(null)
+        } finally {
+          if (mounted) setLoading(false)
+        }
+      }, 0)
     })
 
     return () => {
-      activo = false
+      mounted = false
       subscription.unsubscribe()
     }
   }, [])
@@ -70,7 +76,9 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-    return data
+    const appUser = await loadAppUser(data.user)
+    setUser(appUser)
+    return { ...data, appUser }
   }
 
   const register = async (email, password, metadata) => {
@@ -78,7 +86,7 @@ export const AuthProvider = ({ children }) => {
       email,
       password,
       options: {
-        data: metadata,
+        data: metadata, // metadata incluye { nombre, cedula, rol }
       },
     })
     if (error) throw error
@@ -92,7 +100,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   )
 }

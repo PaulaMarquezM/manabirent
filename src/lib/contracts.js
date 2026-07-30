@@ -1,12 +1,5 @@
 import { supabase } from './supabase'
 
-// Suma meses a una fecha (YYYY-MM-DD) y devuelve la fecha resultante ISO.
-function sumarMeses(fechaISO, meses) {
-  const d = new Date(fechaISO)
-  d.setMonth(d.getMonth() + Number(meses || 0))
-  return d.toISOString().slice(0, 10)
-}
-
 // ---------------------------------------------------------------------------
 // RF-06 — El arrendatario envía una solicitud de arriendo
 // ---------------------------------------------------------------------------
@@ -17,58 +10,15 @@ function sumarMeses(fechaISO, meses) {
  * @param {object} arrendatario - { id, nombre, email, telefono, rol }
  * @param {object} datos - { fecha_inicio, meses, mensaje }
  */
-export async function createSolicitud(propiedad, arrendatario, datos) {
-  if (!arrendatario?.id) {
-    throw new Error('Debes iniciar sesión como arrendatario para enviar una solicitud.')
-  }
-
-  if (arrendatario.rol && arrendatario.rol !== 'arrendatario') {
-    throw new Error('Solo los arrendatarios pueden enviar solicitudes de arriendo.')
-  }
-
-  if (!propiedad?._real && !String(propiedad?.id || '').includes('-')) {
-    throw new Error('Solo se pueden solicitar inmuebles registrados en la plataforma.')
-  }
-
-  if (propiedad.estado && propiedad.estado !== 'disponible') {
-    throw new Error('Este inmueble no está disponible para recibir solicitudes.')
-  }
-
-  if (propiedad.disponible === false) {
-    throw new Error('Este inmueble no está disponible para recibir solicitudes.')
-  }
-
-  const existente = await solicitudExistente(propiedad.id, arrendatario.id)
-  if (existente) {
-    throw new Error('Ya tienes una solicitud pendiente o aprobada para este inmueble.')
-  }
-
-  const registro = {
-    propiedad_id: propiedad.id,
-    arrendador_id: propiedad.arrendador_id || null,
-    arrendatario_id: arrendatario.id || null,
-
-    propiedad_titulo: propiedad.titulo,
-    propiedad_ciudad: propiedad.ciudad,
-    propiedad_sector: propiedad.sector,
-    precio: propiedad.precio,
-    arrendador_nombre: propiedad.arrendador_nombre || null,
-
-    arrendatario_nombre: arrendatario.nombre || null,
-    arrendatario_email: arrendatario.email || null,
-    arrendatario_telefono: arrendatario.telefono || null,
-
-    mensaje: datos.mensaje || null,
-    fecha_inicio: datos.fecha_inicio || null,
-    meses: Number(datos.meses) || propiedad.min_meses || 3,
-    estado: 'pendiente',
-  }
-
+export async function createSolicitud(propiedad, arrendatarioOrDatos, maybeDatos) {
+  const datos = maybeDatos || arrendatarioOrDatos
   const { data, error } = await supabase
-    .from('solicitudes')
-    .insert(registro)
-    .select()
-    .single()
+    .rpc('crear_solicitud', {
+      p_propiedad_id: propiedad.id,
+      p_fecha_inicio: datos.fecha_inicio || null,
+      p_meses: Number(datos.meses) || propiedad.min_meses || 3,
+      p_mensaje: datos.mensaje || null,
+    })
   if (error) throw error
   return data
 }
@@ -131,75 +81,10 @@ export async function aprobarSolicitud(solicitud, arrendadorId) {
     throw new Error('Solo el arrendador del inmueble puede aprobar esta solicitud.')
   }
 
-  const { data: existente, error: errExistente } = await supabase
-    .from('contratos')
-    .select('*')
-    .eq('solicitud_id', solicitud.id)
-    .maybeSingle()
-  if (errExistente) throw errExistente
-  if (existente) return existente
-
-  const fechaInicio = solicitud.fecha_inicio || new Date().toISOString().slice(0, 10)
-  const fechaFin = sumarMeses(fechaInicio, solicitud.meses)
-
-  const contrato = {
-    solicitud_id: solicitud.id,
-    propiedad_id: solicitud.propiedad_id,
-    arrendador_id: solicitud.arrendador_id,
-    arrendatario_id: solicitud.arrendatario_id,
-
-    propiedad_titulo: solicitud.propiedad_titulo,
-    propiedad_ciudad: solicitud.propiedad_ciudad,
-    propiedad_sector: solicitud.propiedad_sector,
-    arrendador_nombre: solicitud.arrendador_nombre,
-    arrendatario_nombre: solicitud.arrendatario_nombre,
-    arrendatario_email: solicitud.arrendatario_email,
-    precio_mensual: solicitud.precio,
-    fecha_inicio: fechaInicio,
-    fecha_fin: fechaFin,
-    meses: solicitud.meses,
-    estado: 'vigente',
-  }
-
-  // 1) Crear la ficha del contrato
-  const { data: contratoCreado, error: errContrato } = await supabase
-    .from('contratos')
-    .insert(contrato)
-    .select()
-    .single()
-  if (errContrato) throw errContrato
-
-  // 2) Marcar la solicitud como aprobada
-  const { error: errSol } = await supabase
-    .from('solicitudes')
-    .update({ estado: 'aprobada', respuesta: 'Solicitud aprobada. Se generó la ficha digital del contrato.' })
-    .eq('id', solicitud.id)
-  if (errSol) throw errSol
-
-  // 3) Rechazar las otras solicitudes pendientes del mismo inmueble.
-  if (solicitud.propiedad_id) {
-    const { error: errOtras } = await supabase
-      .from('solicitudes')
-      .update({
-        estado: 'rechazada',
-        respuesta: 'El inmueble ya fue asignado a otra solicitud aprobada.',
-      })
-      .eq('propiedad_id', solicitud.propiedad_id)
-      .eq('estado', 'pendiente')
-      .neq('id', solicitud.id)
-    if (errOtras) throw errOtras
-  }
-
-  // 4) La propiedad pasa a 'arrendada'
-  if (solicitud.propiedad_id) {
-    const { error: errPropiedad } = await supabase
-      .from('propiedades')
-      .update({ estado: 'arrendada' })
-      .eq('id', solicitud.propiedad_id)
-    if (errPropiedad) throw errPropiedad
-  }
-
-  return contratoCreado
+  const { data, error } = await supabase
+    .rpc('aprobar_solicitud', { p_solicitud_id: solicitud.id })
+  if (error) throw error
+  return data
 }
 
 /** Rechaza una solicitud, con nota opcional. */
@@ -213,12 +98,10 @@ export async function rechazarSolicitud(solicitud, respuesta = null, arrendadorI
     throw new Error('Solo el arrendador del inmueble puede rechazar esta solicitud.')
   }
 
-  const { data, error } = await supabase
-    .from('solicitudes')
-    .update({ estado: 'rechazada', respuesta: respuesta || 'Solicitud rechazada por el arrendador.' })
-    .eq('id', id)
-    .select()
-    .single()
+  const { data, error } = await supabase.rpc('rechazar_solicitud', {
+    p_solicitud_id: id,
+    p_respuesta: respuesta || 'Solicitud rechazada por el arrendador.',
+  })
   if (error) throw error
   return data
 }
@@ -264,20 +147,8 @@ export async function finalizarContrato(contrato) {
   }
 
   const { data, error } = await supabase
-    .from('contratos')
-    .update({ estado: 'finalizado' })
-    .eq('id', contrato.id)
-    .select()
-    .single()
+    .rpc('finalizar_contrato', { p_contrato_id: contrato.id })
   if (error) throw error
-
-  if (contrato.propiedad_id) {
-    const { error: errPropiedad } = await supabase
-      .from('propiedades')
-      .update({ estado: 'disponible' })
-      .eq('id', contrato.propiedad_id)
-    if (errPropiedad) throw errPropiedad
-  }
   return data
 }
 

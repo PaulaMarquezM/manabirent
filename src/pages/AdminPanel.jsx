@@ -29,6 +29,7 @@ export default function AdminPanel() {
   })
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState(null)
+  const [procesando, setProcesando] = useState(null)
 
   useEffect(() => {
     if (!user || user.rol !== 'admin') return
@@ -77,24 +78,61 @@ export default function AdminPanel() {
   // --- Lógica de Moderación (RF-15) ---
   const toggleUsuario = async (id, estadoActual) => {
     const nuevoEstado = !estadoActual
-    const { error } = await supabase.from('perfiles').update({ cuenta_activa: nuevoEstado }).eq('id', id)
-    if (!error) {
+    setProcesando(`usuario-${id}`)
+    setErrorMsg(null)
+    const { error } = await supabase.rpc('admin_moderar_usuario', {
+      p_user_id: id,
+      p_activa: nuevoEstado,
+      p_motivo: null,
+    })
+    if (error) {
+      setErrorMsg(error.message)
+    } else {
       setData(prev => ({
         ...prev,
         perfiles: prev.perfiles.map(p => p.id === id ? { ...p, cuenta_activa: nuevoEstado } : p)
       }))
     }
+    setProcesando(null)
   }
 
   const togglePropiedad = async (id, estadoActual) => {
     const nuevoEstado = !estadoActual
-    const { error } = await supabase.from('propiedades').update({ publicacion_activa: nuevoEstado }).eq('id', id)
-    if (!error) {
+    setProcesando(`propiedad-${id}`)
+    setErrorMsg(null)
+    const { error } = await supabase.rpc('admin_moderar_propiedad', {
+      p_propiedad_id: id,
+      p_activa: nuevoEstado,
+      p_motivo: null,
+    })
+    if (error) {
+      setErrorMsg(error.message)
+    } else {
       setData(prev => ({
         ...prev,
         propiedades: prev.propiedades.map(p => p.id === id ? { ...p, publicacion_activa: nuevoEstado } : p)
       }))
     }
+    setProcesando(null)
+  }
+
+  const verificarPropiedad = async (id, verificacion) => {
+    setProcesando(`verificacion-${id}`)
+    setErrorMsg(null)
+    const { error } = await supabase.rpc('admin_verificar_propiedad', {
+      p_propiedad_id: id,
+      p_verificacion: verificacion,
+      p_motivo: null,
+    })
+    if (error) {
+      setErrorMsg(error.message)
+    } else {
+      setData(prev => ({
+        ...prev,
+        propiedades: prev.propiedades.map(p => p.id === id ? { ...p, verificacion } : p)
+      }))
+    }
+    setProcesando(null)
   }
 
   // --- KPIs y Estadísticas (RF-13, RF-14) ---
@@ -156,7 +194,7 @@ export default function AdminPanel() {
         {errorMsg && (
           <div className="mb-6 p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm flex items-center gap-2">
             <XCircle size={18} />
-            Hubo un problema cargando los datos. Asegúrate de haber ejecutado el script schema_modulo6.sql en Supabase.
+            {errorMsg}
           </div>
         )}
 
@@ -330,7 +368,8 @@ export default function AdminPanel() {
                         <th className="px-5 py-3">Inmueble</th>
                         <th className="px-5 py-3">Arrendador</th>
                         <th className="px-5 py-3">Ciudad</th>
-                        <th className="px-5 py-3">Estado Publicación</th>
+                        <th className="px-5 py-3">Estado</th>
+                        <th className="px-5 py-3">Verificación</th>
                         <th className="px-5 py-3 text-right">Acción</th>
                       </tr>
                     </thead>
@@ -348,19 +387,36 @@ export default function AdminPanel() {
                               {p.publicacion_activa ? 'Pública' : 'Oculta'}
                             </span>
                           </td>
+                          <td className="px-5 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${p.verificacion === 'aprobada' ? 'bg-green-100 text-green-700' : p.verificacion === 'rechazada' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {p.verificacion || 'pendiente'}
+                            </span>
+                          </td>
                           <td className="px-5 py-3 text-right">
-                            <button
-                              onClick={() => togglePropiedad(p.id, p.publicacion_activa)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${p.publicacion_activa ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
-                            >
-                              <Power size={14} />
-                              {p.publicacion_activa ? 'Ocultar' : 'Mostrar'}
-                            </button>
+                            <div className="flex justify-end gap-2">
+                              {p.verificacion !== 'aprobada' && (
+                                <button
+                                  disabled={procesando === `verificacion-${p.id}`}
+                                  onClick={() => verificarPropiedad(p.id, 'aprobada')}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-50 text-green-600 hover:bg-green-100 disabled:opacity-50"
+                                >
+                                  <CheckCircle size={14} /> Aprobar
+                                </button>
+                              )}
+                              <button
+                                disabled={procesando === `propiedad-${p.id}`}
+                                onClick={() => togglePropiedad(p.id, p.publicacion_activa)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${p.publicacion_activa ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                              >
+                                <Power size={14} />
+                                {p.publicacion_activa ? 'Ocultar' : 'Mostrar'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                       {data.propiedades.length === 0 && (
-                        <tr><td colSpan="5" className="px-5 py-8 text-center text-gray-400">No hay propiedades registradas.</td></tr>
+                        <tr><td colSpan="6" className="px-5 py-8 text-center text-gray-400">No hay propiedades registradas.</td></tr>
                       )}
                     </tbody>
                   </table>
