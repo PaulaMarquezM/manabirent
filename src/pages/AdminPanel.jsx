@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { CheckCircle, XCircle, BarChart2, Home, Users, AlertTriangle, Clock, Shield, Power } from 'lucide-react'
+import { CheckCircle, XCircle, BarChart2, Home, Users, AlertTriangle, Shield, Power } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import {

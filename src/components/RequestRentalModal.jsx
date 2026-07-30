@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { X, CheckCircle, Loader2, AlertTriangle, Send } from 'lucide-react'
 import { createSolicitud, solicitudExistente } from '../lib/contracts'
+import { useAuth } from '../context/AuthContext'
 
 export default function RequestRentalModal({ propiedad, onClose }) {
+  const { user: arrendatario } = useAuth()
   const hoy = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     fecha_inicio: hoy,
