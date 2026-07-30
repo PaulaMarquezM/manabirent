@@ -27,7 +27,7 @@ export default function Login() {
 
     try {
       const authData = await login(form.email, form.password)
-      const rol = authData.user.user_metadata?.rol
+      const rol = authData.appUser.rol
       
       if (rol === 'admin') navigate('/admin')
       else if (rol === 'arrendador') navigate('/publicar')

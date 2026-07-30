@@ -1,49 +1,22 @@
 import { supabase } from './supabase'
 
-// Suma meses a una fecha (YYYY-MM-DD) y devuelve la fecha resultante ISO.
-function sumarMeses(fechaISO, meses) {
-  const d = new Date(fechaISO)
-  d.setMonth(d.getMonth() + Number(meses || 0))
-  return d.toISOString().slice(0, 10)
-}
-
 // ---------------------------------------------------------------------------
 // RF-06 — El arrendatario envía una solicitud de arriendo
 // ---------------------------------------------------------------------------
 
 /**
  * Crea una solicitud de arriendo para una propiedad.
- * @param {object} propiedad - fila de la tabla propiedades (real, con UUID)
- * @param {object} arrendatario - { id, nombre, email, telefono }
+ * @param {object} propiedad - inmueble público (real, con UUID)
  * @param {object} datos - { fecha_inicio, meses, mensaje }
  */
-export async function createSolicitud(propiedad, arrendatario, datos) {
-  const registro = {
-    propiedad_id: propiedad.id,
-    arrendador_id: propiedad.arrendador_id || null,
-    arrendatario_id: arrendatario.id || null,
-
-    propiedad_titulo: propiedad.titulo,
-    propiedad_ciudad: propiedad.ciudad,
-    propiedad_sector: propiedad.sector,
-    precio: propiedad.precio,
-    arrendador_nombre: propiedad.arrendador_nombre || null,
-
-    arrendatario_nombre: arrendatario.nombre || null,
-    arrendatario_email: arrendatario.email || null,
-    arrendatario_telefono: arrendatario.telefono || null,
-
-    mensaje: datos.mensaje || null,
-    fecha_inicio: datos.fecha_inicio || null,
-    meses: Number(datos.meses) || propiedad.min_meses || 3,
-    estado: 'pendiente',
-  }
-
+export async function createSolicitud(propiedad, datos) {
   const { data, error } = await supabase
-    .from('solicitudes')
-    .insert(registro)
-    .select()
-    .single()
+    .rpc('crear_solicitud', {
+      p_propiedad_id: propiedad.id,
+      p_fecha_inicio: datos.fecha_inicio || null,
+      p_meses: Number(datos.meses) || propiedad.min_meses || 3,
+      p_mensaje: datos.mensaje || null,
+    })
   if (error) throw error
   return data
 }
@@ -97,62 +70,19 @@ export async function listMisSolicitudes(arrendatarioId) {
  * @returns {object} el contrato creado
  */
 export async function aprobarSolicitud(solicitud) {
-  const fechaInicio = solicitud.fecha_inicio || new Date().toISOString().slice(0, 10)
-  const fechaFin = sumarMeses(fechaInicio, solicitud.meses)
-
-  const contrato = {
-    solicitud_id: solicitud.id,
-    propiedad_id: solicitud.propiedad_id,
-    arrendador_id: solicitud.arrendador_id,
-    arrendatario_id: solicitud.arrendatario_id,
-
-    propiedad_titulo: solicitud.propiedad_titulo,
-    propiedad_ciudad: solicitud.propiedad_ciudad,
-    propiedad_sector: solicitud.propiedad_sector,
-    arrendador_nombre: solicitud.arrendador_nombre,
-    arrendatario_nombre: solicitud.arrendatario_nombre,
-    arrendatario_email: solicitud.arrendatario_email,
-    precio_mensual: solicitud.precio,
-    fecha_inicio: fechaInicio,
-    fecha_fin: fechaFin,
-    meses: solicitud.meses,
-    estado: 'vigente',
-  }
-
-  // 1) Crear la ficha del contrato
-  const { data: contratoCreado, error: errContrato } = await supabase
-    .from('contratos')
-    .insert(contrato)
-    .select()
-    .single()
-  if (errContrato) throw errContrato
-
-  // 2) Marcar la solicitud como aprobada
-  const { error: errSol } = await supabase
-    .from('solicitudes')
-    .update({ estado: 'aprobada' })
-    .eq('id', solicitud.id)
-  if (errSol) throw errSol
-
-  // 3) La propiedad pasa a 'arrendada'
-  if (solicitud.propiedad_id) {
-    await supabase
-      .from('propiedades')
-      .update({ estado: 'arrendada' })
-      .eq('id', solicitud.propiedad_id)
-  }
-
-  return contratoCreado
+  const { data, error } = await supabase
+    .rpc('aprobar_solicitud', { p_solicitud_id: solicitud.id })
+  if (error) throw error
+  return data
 }
 
 /** Rechaza una solicitud, con nota opcional. */
 export async function rechazarSolicitud(id, respuesta = null) {
   const { data, error } = await supabase
-    .from('solicitudes')
-    .update({ estado: 'rechazada', respuesta })
-    .eq('id', id)
-    .select()
-    .single()
+    .rpc('rechazar_solicitud', {
+      p_solicitud_id: id,
+      p_respuesta: respuesta,
+    })
   if (error) throw error
   return data
 }
@@ -182,18 +112,7 @@ export async function listContratos(rol, userId) {
  */
 export async function finalizarContrato(contrato) {
   const { data, error } = await supabase
-    .from('contratos')
-    .update({ estado: 'finalizado' })
-    .eq('id', contrato.id)
-    .select()
-    .single()
+    .rpc('finalizar_contrato', { p_contrato_id: contrato.id })
   if (error) throw error
-
-  if (contrato.propiedad_id) {
-    await supabase
-      .from('propiedades')
-      .update({ estado: 'disponible' })
-      .eq('id', contrato.propiedad_id)
-  }
   return data
 }

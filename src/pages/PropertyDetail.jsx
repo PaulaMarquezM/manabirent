@@ -2,7 +2,7 @@ import { useState, useEffect, Suspense, lazy } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, Star, CheckCircle, Phone, Clock, FileText, ChevronLeft, ChevronRight, KeyRound, Loader2 } from 'lucide-react'
 import { properties } from '../data/mockData'
-import { getProperty } from '../lib/properties'
+import { getPublicProperty } from '../lib/properties'
 import { useAuth } from '../context/AuthContext'
 import RequestRentalModal from '../components/RequestRentalModal'
 
@@ -29,26 +29,6 @@ const servicioIcono = {
   'Baño privado': '🚿',
 }
 
-// Convierte una fila real de la tabla `propiedades` a la forma que espera esta
-// pantalla (que originalmente se diseñó para los datos mock).
-function normalizarPropiedadDB(row) {
-  return {
-    ...row,
-    title: row.titulo,
-    disponible: row.estado === 'disponible',
-    calificacion: 0,
-    num_resenas: 0,
-    resenas: [],
-    arrendador: {
-      nombre: row.arrendador_nombre || 'Arrendador',
-      telefono: row.arrendador_telefono || '',
-      verificado: row.verificacion === 'aprobada',
-      miembro_desde: row.created_at ? new Date(row.created_at).getFullYear().toString() : '',
-    },
-    _real: true,
-  }
-}
-
 export default function PropertyDetail() {
   const { id } = useParams()
   const { user } = useAuth()
@@ -66,8 +46,8 @@ export default function PropertyDetail() {
   useEffect(() => {
     if (!esUUID) return
     let activo = true
-    getProperty(id)
-      .then((row) => { if (activo) setProperty(normalizarPropiedadDB(row)) })
+    getPublicProperty(id)
+      .then((row) => { if (activo) setProperty(row) })
       .catch(() => { if (activo) setProperty(null) })
       .finally(() => { if (activo) setCargando(false) })
     return () => { activo = false }
@@ -338,7 +318,7 @@ export default function PropertyDetail() {
                   <p><strong>SERVICIOS INCLUIDOS:</strong> {property.servicios?.join(', ')}</p>
                   <hr className="my-2" />
                   <p className="text-gray-500 italic">
-                    El arrendatario y arrendador declaran conocer y aceptar las condiciones establecidas. Este contrato cumple con la Ley de Inquilinato del Ecuador y la LOPDP. Verificado por el Municipio de {property.ciudad}.
+                    El arrendatario y arrendador declaran conocer y aceptar las condiciones establecidas. Este modelo contempla la Ley de Inquilinato del Ecuador y la LOPDP.{property.arrendador.verificado ? ` Inmueble verificado por el Municipio de ${property.ciudad}.` : ''}
                   </p>
                   <hr className="my-2" />
                   <div className="grid grid-cols-2 gap-4 mt-4">
@@ -371,7 +351,6 @@ export default function PropertyDetail() {
       {solicitarOpen && user && (
         <RequestRentalModal
           propiedad={property}
-          arrendatario={{ id: user.id, nombre: user.nombre, email: user.email }}
           onClose={() => setSolicitarOpen(false)}
         />
       )}

@@ -14,6 +14,28 @@ function conDisponible(row) {
   return { ...row, disponible: row.estado === 'disponible' }
 }
 
+/** Adapta una fila segura de Supabase al formato visual de la aplicación. */
+export function normalizeProperty(row) {
+  if (!row) return row
+  return {
+    ...conDisponible(row),
+    title: row.titulo,
+    fotos: row.fotos || [],
+    calificacion: 0,
+    num_resenas: 0,
+    resenas: [],
+    arrendador: {
+      nombre: row.arrendador_nombre || 'Arrendador',
+      telefono: '',
+      verificado: row.verificacion === 'aprobada',
+      miembro_desde: row.created_at
+        ? new Date(row.created_at).getFullYear().toString()
+        : '',
+    },
+    _real: true,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Subida de fotos a Storage
 // ---------------------------------------------------------------------------
@@ -21,10 +43,13 @@ function conDisponible(row) {
 /**
  * Sube una lista de File al bucket de Storage y devuelve sus URLs públicas.
  * @param {File[]} files
- * @param {string} carpeta - prefijo (p. ej. el email o id del arrendador)
+ * @param {string} carpeta - auth.uid del arrendador
  * @returns {Promise<string[]>}
  */
 export async function uploadFotos(files, carpeta = 'anon') {
+  if (!carpeta || carpeta === 'anon') {
+    throw new Error('Debes iniciar sesión para subir fotografías')
+  }
   const urls = []
   for (const file of files) {
     const ext = file.name.split('.').pop()
@@ -57,6 +82,27 @@ export async function listProperties({ arrendadorEmail } = {}) {
   return (data || []).map(conDisponible)
 }
 
+/** Catálogo público: usa una vista que excluye datos personales y moderación. */
+export async function listPublicProperties() {
+  const { data, error } = await supabase
+    .from('propiedades_publicas')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).map(normalizeProperty)
+}
+
+/** Detalle público seguro de una propiedad disponible. */
+export async function getPublicProperty(id) {
+  const { data, error } = await supabase
+    .from('propiedades_publicas')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return normalizeProperty(data)
+}
+
 /** Obtiene una propiedad por id. */
 export async function getProperty(id) {
   const { data, error } = await supabase
@@ -75,7 +121,7 @@ export async function getProperty(id) {
  * @param {object} arrendador - { nombre, email, telefono }
  */
 export async function createProperty(form, fotos = [], arrendador = {}) {
-  const carpeta = arrendador.email || 'anon'
+  const carpeta = arrendador.id
   const fotosUrls = fotos.length ? await uploadFotos(fotos, carpeta) : []
   const centro = CENTRO_CIUDAD[form.ciudad] || {}
 
@@ -113,7 +159,7 @@ export async function createProperty(form, fotos = [], arrendador = {}) {
  * Edita una propiedad. Si `nuevasFotos` trae File[], las sube y las concatena.
  */
 export async function updateProperty(id, form, nuevasFotos = [], arrendador = {}) {
-  const carpeta = arrendador.email || 'anon'
+  const carpeta = arrendador.id
   const nuevasUrls = nuevasFotos.length ? await uploadFotos(nuevasFotos, carpeta) : []
 
   const cambios = {

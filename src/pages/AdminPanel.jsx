@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CheckCircle, XCircle, Eye, BarChart2, Home, Users, AlertTriangle, Clock } from 'lucide-react'
 import { properties } from '../data/mockData'
+import { useAuth } from '../context/AuthContext'
 
 const pendientes = [
   { id: 101, titulo: 'Habitación sector Los Esteros', arrendador: 'Luis Vera', ciudad: 'Manta', precio: 200, tipo: 'habitacion', fecha: '2026-06-15' },
@@ -9,7 +10,8 @@ const pendientes = [
   { id: 103, titulo: 'Departamento 3 hab, Manta centro', arrendador: 'Marcos Delgado', ciudad: 'Manta', precio: 600, tipo: 'departamento', fecha: '2026-06-17' },
 ]
 
-export default function AdminPanel({ user }) {
+export default function AdminPanel() {
+  const { user } = useAuth()
   const [solicitudes, setSolicitudes] = useState(pendientes)
   const [accion, setAccion] = useState(null)
 

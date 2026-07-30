@@ -1,10 +1,65 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2, Inbox, FileText } from 'lucide-react'
+import { useEffect } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Home, PlusCircle, LogIn, LogOut, User, Shield, Building2, Inbox, FileText, Menu, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useDisclosure } from '../hooks/useDisclosure'
+
+const linkClass = ({ isActive }) => [
+  'flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
+  isActive ? 'bg-primary-800 text-white' : 'text-blue-50 hover:bg-primary-600 hover:text-white',
+].join(' ')
+
+function buildNavigation(user) {
+  const items = [{ to: '/', label: 'Inicio', icon: Home, end: true }]
+
+  if (user?.rol === 'admin') {
+    items.push({ to: '/admin', label: 'Administración', icon: Shield })
+  }
+
+  if (user?.rol === 'arrendador') {
+    items.push(
+      { to: '/mis-propiedades', label: 'Mis propiedades', icon: Building2 },
+      { to: '/solicitudes', label: 'Solicitudes', icon: Inbox },
+      { to: '/contratos', label: 'Contratos', icon: FileText },
+      { to: '/publicar', label: 'Publicar', icon: PlusCircle, featured: true },
+    )
+  }
+
+  if (user?.rol === 'arrendatario') {
+    items.push(
+      { to: '/solicitudes', label: 'Mis solicitudes', icon: Inbox },
+      { to: '/contratos', label: 'Mis contratos', icon: FileText },
+    )
+  }
+
+  return items
+}
+
+function NavigationLinks({ items, onNavigate, mobile = false }) {
+  return items.map(({ to, label, icon: Icon, end, featured }) => (
+    <NavLink
+      key={to}
+      to={to}
+      end={end}
+      onClick={onNavigate}
+      className={featured
+        ? 'flex min-h-11 items-center gap-2 rounded-lg bg-accent-500 px-3 text-sm font-semibold text-white hover:bg-accent-600'
+        : linkClass}
+    >
+      <Icon size={17} aria-hidden="true" />
+      <span className={mobile ? '' : 'whitespace-nowrap'}>{label}</span>
+    </NavLink>
+  ))
+}
 
 export default function Navbar() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, logout } = useAuth()
+  const { isOpen, close, toggle } = useDisclosure()
+  const navigation = buildNavigation(user)
+
+  useEffect(() => close(), [close, location.pathname])
 
   const handleLogout = async () => {
     try {
@@ -16,78 +71,67 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-primary-700 text-white shadow-lg sticky top-0 z-50">
+    <nav className="sticky top-0 z-50 bg-primary-700 text-white shadow-lg" aria-label="Navegación principal">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-            <span className="text-2xl">🏠</span>
+        <div className="flex h-16 items-center justify-between gap-3">
+          <Link to="/" className="flex min-w-0 items-center gap-2 text-xl font-bold" aria-label="ManabíRent, ir al inicio">
+            <span className="text-2xl" aria-hidden="true">🏠</span>
             <span>ManabíRent</span>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <Link to="/" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
-              <Home size={16} />
-              <span className="hidden sm:inline">Inicio</span>
-            </Link>
-
+          <div className="hidden items-center gap-1 lg:flex">
+            <NavigationLinks items={navigation} />
             {user ? (
-              <>
-                {user.rol === 'admin' && (
-                  <Link to="/admin" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
-                    <Shield size={16} />
-                    <span className="hidden sm:inline">Admin</span>
-                  </Link>
-                )}
-                {user.rol === 'arrendador' && (
-                  <>
-                    <Link to="/mis-propiedades" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
-                      <Building2 size={16} />
-                      <span className="hidden sm:inline">Mis propiedades</span>
-                    </Link>
-                    <Link to="/solicitudes" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
-                      <Inbox size={16} />
-                      <span className="hidden sm:inline">Solicitudes</span>
-                    </Link>
-                    <Link to="/contratos" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
-                      <FileText size={16} />
-                      <span className="hidden sm:inline">Contratos</span>
-                    </Link>
-                    <Link to="/publicar" className="flex items-center gap-1 bg-accent-500 hover:bg-accent-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
-                      <PlusCircle size={16} />
-                      <span>Publicar</span>
-                    </Link>
-                  </>
-                )}
-                {user.rol === 'arrendatario' && (
-                  <>
-                    <Link to="/solicitudes" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
-                      <Inbox size={16} />
-                      <span className="hidden sm:inline">Mis solicitudes</span>
-                    </Link>
-                    <Link to="/contratos" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
-                      <FileText size={16} />
-                      <span className="hidden sm:inline">Mis contratos</span>
-                    </Link>
-                  </>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1 text-sm text-blue-200">
-                    <User size={14} />
-                    {user.nombre}
-                  </span>
-                  <button onClick={handleLogout} className="flex items-center gap-1 hover:text-blue-200 text-sm">
-                    <LogOut size={14} />
-                  </button>
-                </div>
-              </>
+              <div className="ml-2 flex items-center gap-1 border-l border-primary-500 pl-3">
+                <span className="flex max-w-32 items-center gap-1 truncate text-sm text-blue-100" title={user.nombre}>
+                  <User size={15} aria-hidden="true" />
+                  <span className="truncate">{user.nombre}</span>
+                </span>
+                <button onClick={handleLogout} className="flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-primary-600" aria-label="Cerrar sesión">
+                  <LogOut size={17} aria-hidden="true" />
+                </button>
+              </div>
             ) : (
-              <Link to="/login" className="flex items-center gap-1 bg-white text-primary-700 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-sm font-semibold">
-                <LogIn size={16} />
-                <span>Ingresar</span>
-              </Link>
+              <NavLink to="/login" className="ml-2 flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-primary-700 hover:bg-blue-50">
+                <LogIn size={17} aria-hidden="true" /> Ingresar
+              </NavLink>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg hover:bg-primary-600 lg:hidden"
+            aria-expanded={isOpen}
+            aria-controls="mobile-navigation"
+            aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
+          >
+            {isOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
+          </button>
         </div>
+
+        {isOpen && (
+          <div id="mobile-navigation" className="border-t border-primary-600 py-3 lg:hidden">
+            <div className="grid gap-1">
+              <NavigationLinks items={navigation} onNavigate={close} mobile />
+              {user ? (
+                <div className="mt-2 flex items-center justify-between border-t border-primary-600 pt-3">
+                  <span className="flex min-w-0 items-center gap-2 text-sm text-blue-100">
+                    <User size={16} aria-hidden="true" />
+                    <span className="truncate">{user.nombre}</span>
+                  </span>
+                  <button onClick={handleLogout} className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm hover:bg-primary-600">
+                    <LogOut size={17} aria-hidden="true" /> Cerrar sesión
+                  </button>
+                </div>
+              ) : (
+                <NavLink to="/login" onClick={close} className="mt-2 flex min-h-11 items-center gap-2 rounded-lg bg-white px-3 text-sm font-semibold text-primary-700">
+                  <LogIn size={17} aria-hidden="true" /> Ingresar
+                </NavLink>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   )

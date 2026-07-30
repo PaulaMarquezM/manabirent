@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { X, CheckCircle, Loader2, AlertTriangle, Send } from 'lucide-react'
 import { createSolicitud } from '../lib/contracts'
 
-export default function RequestRentalModal({ propiedad, arrendatario, onClose }) {
+export default function RequestRentalModal({ propiedad, onClose }) {
   const hoy = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     fecha_inicio: hoy,
@@ -18,7 +18,7 @@ export default function RequestRentalModal({ propiedad, arrendatario, onClose })
     setError('')
     setEnviando(true)
     try {
-      await createSolicitud(propiedad, arrendatario, form)
+      await createSolicitud(propiedad, form)
       setOk(true)
     } catch (err) {
       setError(err.message || 'No se pudo enviar la solicitud.')
