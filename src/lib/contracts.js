@@ -174,6 +174,62 @@ export async function listIncidenciasArrendatario(arrendatarioId) {
 }
 
 /**
+ * Lista las incidencias recibidas por el arrendador de los inmuebles.
+ */
+export async function listIncidenciasArrendador(arrendadorId) {
+  if (!arrendadorId) {
+    throw new Error('Debes iniciar sesión para consultar las incidencias recibidas.')
+  }
+
+  const { data, error } = await supabase
+    .from('incidencias')
+    .select('*')
+    .eq('arrendador_id', arrendadorId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Recupera la trazabilidad de una lista de incidencias. RLS limita los
+ * resultados a las incidencias donde el usuario es arrendador o arrendatario.
+ */
+export async function listHistorialIncidencias(incidenciaIds) {
+  const ids = [...new Set((incidenciaIds || []).filter(Boolean))]
+  if (ids.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('incidencias_historial')
+    .select('*')
+    .in('incidencia_id', ids)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * RF-10: actualiza el estado mediante una RPC segura. La base registra el
+ * cambio en incidencias_historial dentro de la misma transacción.
+ */
+export async function actualizarEstadoIncidencia(incidencia, estado, comentario = '') {
+  if (!incidencia?.id) throw new Error('Incidencia inválida.')
+  if (!['reportada', 'en_proceso', 'resuelta'].includes(estado)) {
+    throw new Error('Estado de incidencia inválido.')
+  }
+  if (incidencia.estado === estado) {
+    throw new Error('Selecciona un estado diferente al actual.')
+  }
+
+  const { data, error } = await supabase.rpc('actualizar_estado_incidencia', {
+    p_incidencia_id: incidencia.id,
+    p_estado: estado,
+    p_comentario: comentario.trim() || null,
+  })
+  if (error) throw error
+  return data
+}
+
+/**
  * Registra un reporte de falla o solicitud de mantenimiento asociado a un
  * contrato activo del arrendatario.
  */

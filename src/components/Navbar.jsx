@@ -52,6 +52,10 @@ export default function Navbar() {
                       <FileText size={16} />
                       <span className="hidden sm:inline">Contratos</span>
                     </Link>
+                    <Link to="/incidencias" className="flex items-center gap-1 hover:text-blue-200 text-sm font-medium">
+                      <Wrench size={16} />
+                      <span className="hidden sm:inline">Quejas</span>
+                    </Link>
                     <Link to="/publicar" className="flex items-center gap-1 bg-accent-500 hover:bg-accent-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium">
                       <PlusCircle size={16} />
                       <span>Publicar</span>

@@ -25,7 +25,7 @@
 - **Solicitudes de arriendo:** el arrendatario postula a un inmueble disponible y el arrendador puede aprobar o rechazar con una respuesta.
 - **Contratos digitales:** al aprobar una solicitud se crea una ficha contractual, el inmueble pasa a arrendado y las otras solicitudes pendientes se rechazan.
 - **Historial contractual:** consulta y finalización de contratos vigentes para las dos partes.
-- **Incidencias de mantenimiento:** los arrendatarios reportan novedades asociadas a contratos activos, con categoría, prioridad y estado.
+- **Incidencias de mantenimiento:** los arrendatarios reportan novedades asociadas a contratos activos y los arrendadores actualizan su estado con trazabilidad completa.
 - **Panel municipal:** KPIs, gráficos de inmuebles por ciudad y tipo, y moderación de usuarios y publicaciones.
 
 ## 🔄 Flujo principal
@@ -83,6 +83,11 @@ En el **SQL Editor** de Supabase, ejecuta los scripts en este orden:
 2. `supabase/schema_modulo3.sql` - solicitudes, contratos e incidencias.
 3. `supabase/schema_modulo6.sql` - perfiles, moderación y panel municipal.
 
+Después de los esquemas base, aplica las migraciones de `supabase/migrations/`
+en orden cronológico. La migración `20260803_rf10_seguimiento_incidencias.sql`
+incorpora los estados Pendiente, En proceso y Resuelto, además del historial de
+cambios requerido por RF-10.
+
 > `supabase_setup.sql` corresponde a una configuración inicial alternativa. Para una instalación nueva, usa la secuencia anterior y evita ejecutar ambos esquemas de perfiles.
 
 ### 5. Iniciar la aplicación
@@ -109,6 +114,7 @@ Abre la dirección indicada por Vite, normalmente `http://localhost:5173`.
 | Explorar inmuebles y mapa | ✅ | ✅ | ✅ | ✅ |
 | Enviar solicitudes | — | ✅ | — | — |
 | Reportar incidencias | — | ✅ | — | — |
+| Actualizar seguimiento de incidencias | — | Consulta | ✅ | — |
 | Publicar y gestionar inmuebles | — | — | ✅ | — |
 | Responder solicitudes y contratos | — | Consulta | ✅ | Consulta |
 | Consultar panel y moderar | — | — | — | ✅ |
