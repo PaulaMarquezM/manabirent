@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 supabase/.temp/
+cypress/screenshots/
+cypress/videos/
 
 # Editor directories and files
 .vscode/*
