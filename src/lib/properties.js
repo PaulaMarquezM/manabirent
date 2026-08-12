@@ -14,6 +14,12 @@ function conDisponible(row) {
   return { ...row, disponible: row.estado === 'disponible' }
 }
 
+function coordenadaValida(value, minimo, maximo) {
+  if (value === '' || value === null || value === undefined) return null
+  const numero = Number(value)
+  return Number.isFinite(numero) && numero >= minimo && numero <= maximo ? numero : null
+}
+
 // Adapta una fila real de Supabase a la forma que consumen las tarjetas,
 // mapas y pantallas que nacieron con datos mock.
 export function normalizarPropiedad(row) {
@@ -152,8 +158,8 @@ export async function createProperty(form, fotos = [], arrendador = {}) {
     servicios: form.servicios || [],
     reglas: form.reglas || null,
     min_meses: Number(form.min_meses) || 3,
-    lat: form.lat ?? centro.lat ?? null,
-    lng: form.lng ?? centro.lng ?? null,
+    lat: coordenadaValida(form.lat, -90, 90) ?? centro.lat ?? null,
+    lng: coordenadaValida(form.lng, -180, 180) ?? centro.lng ?? null,
     fotos: fotosUrls,
     estado: 'disponible',
     verificacion: 'pendiente',
@@ -190,6 +196,8 @@ export async function updateProperty(id, form, nuevasFotos = [], arrendador = {}
     servicios: form.servicios || [],
     reglas: form.reglas || null,
     min_meses: Number(form.min_meses) || 3,
+    lat: coordenadaValida(form.lat, -90, 90),
+    lng: coordenadaValida(form.lng, -180, 180),
   }
   // Fotos existentes (URLs) que se conservan + las nuevas subidas.
   const fotosExistentes = (form.fotos || []).filter((f) => typeof f === 'string')

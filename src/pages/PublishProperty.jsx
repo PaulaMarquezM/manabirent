@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Upload, CheckCircle, PlusCircle, X, Loader2, AlertTriangle } from 'lucide-react'
+import {
+  ArrowLeft, Upload, CheckCircle, PlusCircle, X, Loader2, AlertTriangle, LocateFixed, MapPin,
+} from 'lucide-react'
 import { ciudades, parroquiasPorCiudad } from '../data/mockData'
 import { createProperty, updateProperty, getProperty } from '../lib/properties'
 import { useAuth } from '../context/AuthContext'
@@ -21,6 +23,8 @@ const FORM_INICIAL = {
   servicios: [],
   reglas: '',
   min_meses: '3',
+  lat: '',
+  lng: '',
   fotos: [], // mezcla de strings (URLs existentes) y File (nuevas)
 }
 
@@ -36,6 +40,7 @@ export default function PublishProperty() {
   const [error, setError] = useState('')
   const [cargando, setCargando] = useState(esEdicion)
   const [form, setForm] = useState(FORM_INICIAL)
+  const [ubicando, setUbicando] = useState(false)
 
   // Cargar datos existentes en modo edición
   useEffect(() => {
@@ -54,6 +59,8 @@ export default function PublishProperty() {
           servicios: p.servicios || [],
           reglas: p.reglas || '',
           min_meses: String(p.min_meses ?? '3'),
+          lat: p.lat == null ? '' : String(p.lat),
+          lng: p.lng == null ? '' : String(p.lng),
           fotos: p.fotos || [],
         })
       })
@@ -89,6 +96,67 @@ export default function PublishProperty() {
     setForm((f) => ({ ...f, fotos: f.fotos.filter((_, i) => i !== idx) }))
   }
 
+  const validarPaso = (numero) => {
+    if (numero === 1) {
+      if (!form.titulo.trim() || !form.tipo || !form.ciudad || !form.sector || !form.precio || !form.descripcion.trim()) {
+        setError('Completa los datos básicos marcados como obligatorios.')
+        return false
+      }
+      if (form.descripcion.trim().length < 50) {
+        setError('La descripción debe tener al menos 50 caracteres.')
+        return false
+      }
+      if ((form.lat && !form.lng) || (!form.lat && form.lng)) {
+        setError('Completa ambas coordenadas o deja ambas vacías.')
+        return false
+      }
+      const latitud = Number(form.lat)
+      const longitud = Number(form.lng)
+      if (form.lat && (!Number.isFinite(latitud) || !Number.isFinite(longitud) || latitud < -90 || latitud > 90 || longitud < -180 || longitud > 180)) {
+        setError('Las coordenadas ingresadas no son válidas.')
+        return false
+      }
+    }
+    if (numero === 2 && !form.reglas.trim()) {
+      setError('Indica al menos una regla de convivencia.')
+      return false
+    }
+    if (numero === 3 && form.fotos.length < 3) {
+      setError('Debes agregar al menos 3 fotos del inmueble.')
+      return false
+    }
+    return true
+  }
+
+  const siguientePaso = () => {
+    setError('')
+    if (validarPaso(paso)) setPaso((actual) => actual + 1)
+  }
+
+  const usarUbicacionActual = () => {
+    setError('')
+    if (!navigator.geolocation) {
+      setError('Tu navegador no permite obtener la ubicación. Ingresa las coordenadas manualmente.')
+      return
+    }
+    setUbicando(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setForm((f) => ({
+          ...f,
+          lat: coords.latitude.toFixed(6),
+          lng: coords.longitude.toFixed(6),
+        }))
+        setUbicando(false)
+      },
+      () => {
+        setError('No pudimos obtener tu ubicación. Revisa el permiso del navegador o ingresa las coordenadas manualmente.')
+        setUbicando(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    )
+  }
+
   // URL de vista previa para File o para string (URL ya subida)
   const previewUrl = (foto) => (typeof foto === 'string' ? foto : URL.createObjectURL(foto))
 
@@ -96,10 +164,7 @@ export default function PublishProperty() {
     e.preventDefault()
     setError('')
 
-    if (form.fotos.length < 3) {
-      setError('Debes agregar al menos 3 fotos del inmueble.')
-      return
-    }
+    if (![1, 2, 3].every(validarPaso)) return
 
     const arrendador = {
       id: user.id,
@@ -251,7 +316,7 @@ export default function PublishProperty() {
                     <select
                       required
                       value={form.ciudad}
-                      onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value, sector: '' }))}
+                      onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value, sector: '', lat: '', lng: '' }))}
                       className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-primary-500"
                     >
                       <option value="">Selecciona...</option>
@@ -286,6 +351,58 @@ export default function PublishProperty() {
                         </>
                       )}
                     </select>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <label className="flex items-center gap-1 text-sm font-medium text-gray-700">
+                        <MapPin size={15} className="text-primary-600" /> Ubicación exacta
+                      </label>
+                      <p className="mt-1 text-xs text-gray-500">Opcional. Si no la indicas, se usará el centro de la ciudad seleccionada.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={usarUbicacionActual}
+                      disabled={ubicando}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+                    >
+                      {ubicando ? <Loader2 size={14} className="animate-spin" /> : <LocateFixed size={14} />}
+                      {ubicando ? 'Buscando…' : 'Usar mi ubicación'}
+                    </button>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600" htmlFor="latitud">Latitud</label>
+                      <input
+                        id="latitud"
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        min="-90"
+                        max="90"
+                        value={form.lat}
+                        onChange={(e) => setForm((f) => ({ ...f, lat: e.target.value }))}
+                        placeholder="-0.967700"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600" htmlFor="longitud">Longitud</label>
+                      <input
+                        id="longitud"
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        min="-180"
+                        max="180"
+                        value={form.lng}
+                        onChange={(e) => setForm((f) => ({ ...f, lng: e.target.value }))}
+                        placeholder="-80.708900"
+                        className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -449,7 +566,7 @@ export default function PublishProperty() {
             {paso < 3 ? (
               <button
                 type="button"
-                onClick={() => setPaso(paso + 1)}
+                onClick={siguientePaso}
                 className="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold"
               >
                 Siguiente →
