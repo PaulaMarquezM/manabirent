@@ -151,6 +151,17 @@ erDiagram
 
 Las entidades principales son `perfiles`, `propiedades`, `solicitudes`, `contratos` e `incidencias`. El sistema conserva datos relevantes de cada operación dentro de solicitudes, contratos e incidencias para mantener el historial aunque un anuncio cambie posteriormente.
 
+## 🧩 Modelado y base de datos
+
+La documentación técnica completa del modelado se encuentra en [`docs/ARQUITECTURA_Y_BD.md`](docs/ARQUITECTURA_Y_BD.md). Incluye:
+
+- Diagrama profesional de arquitectura lógica del software.
+- Diagrama de componentes y responsabilidades.
+- Diagrama de secuencia del flujo de arriendo e incidencias.
+- Diagrama entidad-relación (DER) actualizado.
+
+El script estructurado de la base de datos está disponible en [`BDD.sql`](BDD.sql). Consolida las tablas de perfiles, propiedades, solicitudes, contratos, incidencias, historial de incidencias y renovaciones, junto con índices, triggers, políticas RLS base y el bucket de imágenes de Supabase.
+
 ## 🔐 Consideraciones de seguridad
 
 La aplicación utiliza Supabase Auth y separa la interfaz por roles. Los scripts SQL actuales incluyen políticas RLS permisivas para facilitar el contexto académico y de prototipo.
