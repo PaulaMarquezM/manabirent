@@ -30,3 +30,4 @@ supabase/.temp/
 .env.development
 .env.test
 .env.production
+.aider*
