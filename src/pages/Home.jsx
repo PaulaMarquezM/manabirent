@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import PropertyCard from '../components/PropertyCard'
 import { listPublicProperties } from '../lib/properties'
+import { properties as propiedadesDemo } from '../data/mockData'
 import { useDisclosure } from '../hooks/useDisclosure'
 import { usePropertyFilters } from '../hooks/usePropertyFilters'
 
@@ -45,13 +46,11 @@ export default function Home() {
   const [vista, setVista] = useState('grid')
   const [properties, setProperties] = useState([])
   const [cargando, setCargando] = useState(true)
-  const [errorCarga, setErrorCarga] = useState('')
-
+  const errorCarga = ''
   const {
     isOpen: mostrarFiltros,
     toggle: alternarFiltros,
   } = useDisclosure()
-
   const {
     filters: filtros,
     filteredProperties: propiedadesFiltradas,
@@ -60,7 +59,6 @@ export default function Home() {
     toggleService: alternarServicio,
     clearFilters: limpiarFiltros,
   } = usePropertyFilters(properties)
-
   const serviciosDisponibles = useMemo(
     () => obtenerServiciosDisponibles(properties),
     [properties],
@@ -71,16 +69,12 @@ export default function Home() {
 
     listPublicProperties()
       .then((data) => {
-        if (activo) {
-          setProperties(data)
-        }
+        if (activo) setProperties(data.length > 0 ? data : propiedadesDemo)
       })
       .catch(() => {
-        if (activo) {
-          setErrorCarga(
-            'No pudimos cargar los inmuebles. Intenta nuevamente.',
-          )
-        }
+        // Mantiene el catálogo utilizable si la base aún no tiene aplicada la
+        // vista pública o los datos de demostración.
+        if (activo) setProperties(propiedadesDemo)
       })
       .finally(() => {
         if (activo) {
@@ -124,7 +118,7 @@ export default function Home() {
 
                 <input
                   type="text"
-                  placeholder="Busca por sector, ciudad o tipo..."
+                  placeholder="Busca por parroquia, ciudad o tipo..."
                   className="w-full outline-none text-gray-800 text-sm"
                   value={filtros.busqueda}
                   onChange={(event) =>

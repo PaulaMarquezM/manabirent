@@ -40,7 +40,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 3px solid #f59e0b;
+  outline: 3px solid #1d6fa4;
   outline-offset: 2px;
 }
 

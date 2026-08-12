@@ -153,6 +153,45 @@ export async function finalizarContrato(contrato) {
 }
 
 // ---------------------------------------------------------------------------
+// RF-08 — Renovación de contratos vigentes
+// ---------------------------------------------------------------------------
+
+export async function listRenovaciones(rol, userId) {
+  if (!['arrendador', 'arrendatario'].includes(rol) || !userId) {
+    throw new Error('No se pudo identificar el usuario para consultar renovaciones.')
+  }
+
+  const columna = rol === 'arrendador' ? 'arrendador_id' : 'arrendatario_id'
+  const { data, error } = await supabase
+    .from('renovaciones')
+    .select('*')
+    .eq(columna, userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function crearRenovacion(contratoId, meses, mensaje = '') {
+  const { data, error } = await supabase.rpc('crear_renovacion', {
+    p_contrato_id: contratoId,
+    p_meses: Number(meses),
+    p_mensaje: mensaje,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function resolverRenovacion(renovacionId, aprobar, respuesta = '') {
+  const { data, error } = await supabase.rpc('resolver_renovacion', {
+    p_renovacion_id: renovacionId,
+    p_aprobar: aprobar,
+    p_respuesta: respuesta,
+  })
+  if (error) throw error
+  return data
+}
+
+// ---------------------------------------------------------------------------
 // RF-09 — Reporte de incidencias de mantenimiento
 // ---------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Upload, CheckCircle, PlusCircle, X, Loader2, AlertTriangle } from 'lucide-react'
-import { ciudades, sectoresPorCiudad } from '../data/mockData'
+import { ciudades, parroquiasPorCiudad } from '../data/mockData'
 import { createProperty, updateProperty, getProperty } from '../lib/properties'
 import { useAuth } from '../context/AuthContext'
 
@@ -123,7 +123,9 @@ export default function PublishProperty() {
     }
   }
 
-  const sectores = form.ciudad ? sectoresPorCiudad[form.ciudad] || [] : []
+  const parroquias = form.ciudad ? parroquiasPorCiudad[form.ciudad] : null
+  const opcionesParroquia = parroquias ? [...parroquias.urbanas, ...parroquias.rurales] : []
+  const parroquiaExistente = form.sector && !opcionesParroquia.includes(form.sector) ? form.sector : null
 
   if (cargando) {
     return (
@@ -257,7 +259,7 @@ export default function PublishProperty() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">Sector *</label>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Parroquia *</label>
                     <select
                       required
                       value={form.sector}
@@ -266,7 +268,23 @@ export default function PublishProperty() {
                       disabled={!form.ciudad}
                     >
                       <option value="">Selecciona...</option>
-                      {sectores.map((s) => <option key={s} value={s}>{s}</option>)}
+                      {parroquiaExistente && (
+                        <option value={parroquiaExistente}>{parroquiaExistente} (registro existente)</option>
+                      )}
+                      {parroquias && (
+                        <>
+                          <optgroup label="Parroquias urbanas">
+                            {parroquias.urbanas.map((parroquia) => (
+                              <option key={parroquia} value={parroquia}>{parroquia}</option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Parroquias rurales">
+                            {parroquias.rurales.map((parroquia) => (
+                              <option key={parroquia} value={parroquia}>{parroquia}</option>
+                            ))}
+                          </optgroup>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -319,7 +337,10 @@ export default function PublishProperty() {
                         onClick={() => toggleServicio(s)}
                         className={`text-xs px-3 py-2 rounded-lg border transition-all text-left ${form.servicios.includes(s) ? 'bg-primary-50 border-primary-400 text-primary-700 font-medium' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}
                       >
-                        {form.servicios.includes(s) ? '✓ ' : ''}{s}
+                        <span className="inline-flex items-center gap-1.5">
+                          {form.servicios.includes(s) && <CheckCircle size={14} aria-hidden="true" />}
+                          {s}
+                        </span>
                       </button>
                     ))}
                   </div>

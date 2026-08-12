@@ -89,8 +89,25 @@ export async function listPublicProperties() {
     .from('propiedades_publicas')
     .select('*')
     .order('created_at', { ascending: false })
-  if (error) throw error
-  return (data || []).map(normalizarPropiedad)
+  if (!error) return (data || []).map(normalizarPropiedad)
+
+  // Compatibilidad con proyectos Supabase donde todavía no se ha aplicado
+  // la migración que crea `propiedades_publicas`. Solo se solicitan campos
+  // visibles en el catálogo y se mantienen los filtros del catálogo público.
+  if (error.code === '42P01' || error.code === 'PGRST205') {
+    const fallback = await supabase
+      .from('propiedades')
+      .select('id, titulo, tipo, ciudad, sector, precio, descripcion, servicios, reglas, min_meses, lat, lng, fotos, estado, verificacion, arrendador_nombre, created_at')
+      .eq('publicacion_activa', true)
+      .eq('estado', 'disponible')
+      .neq('verificacion', 'rechazada')
+      .order('created_at', { ascending: false })
+
+    if (!fallback.error) return (fallback.data || []).map(normalizarPropiedad)
+    throw fallback.error
+  }
+
+  throw error
 }
 
 export async function getPublicProperty(id) {

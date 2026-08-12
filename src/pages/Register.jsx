@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { UserPlus, Eye, EyeOff } from 'lucide-react'
+import { UserPlus, Eye, EyeOff, Home } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Register() {
@@ -60,7 +60,7 @@ export default function Register() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <span className="text-4xl">🏠</span>
+          <Home className="mx-auto text-primary-700" size={40} strokeWidth={1.8} aria-hidden="true" />
           <h1 className="text-2xl font-bold text-gray-800 mt-2">Crear Cuenta</h1>
           <p className="text-gray-500 text-sm mt-1">Únete a ManabíRent</p>
         </div>

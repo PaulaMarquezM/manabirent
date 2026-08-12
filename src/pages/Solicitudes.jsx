@@ -230,7 +230,13 @@ export default function Solicitudes() {
                 <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-gray-800">{s.propiedad_titulo}</h3>
+                      <Link
+                        to={`/inmueble/${s.propiedad_id}`}
+                        className="font-semibold text-gray-800 hover:text-primary-600 hover:underline focus-visible:rounded"
+                        aria-label={`Ver detalle de ${s.propiedad_titulo}`}
+                      >
+                        {s.propiedad_titulo}
+                      </Link>
                       <p className="text-xs text-gray-500 mt-0.5">{s.propiedad_sector}, {s.propiedad_ciudad} · ${s.precio}/mes</p>
                     </div>
                     <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${meta.color}`}>

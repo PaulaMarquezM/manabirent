@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   FileText, Loader2, AlertTriangle, CheckCircle, Archive, Eye, X, Printer, Search,
-  Calendar, DollarSign, Wrench,
+  Calendar, CalendarPlus, DollarSign, Wrench,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { listContratos, finalizarContrato } from '../lib/contracts'
+import {
+  crearRenovacion, finalizarContrato, listContratos, listRenovaciones, resolverRenovacion,
+} from '../lib/contracts'
 
 const ESTADO = {
   vigente:    { label: 'Vigente',    color: 'bg-green-100 text-green-700', icon: CheckCircle },
@@ -71,6 +73,52 @@ function FichaContrato({ contrato, onClose }) {
   )
 }
 
+function RenovacionModal({ contrato, ocupado, onClose, onConfirm }) {
+  const [meses, setMeses] = useState(3)
+  const [mensaje, setMensaje] = useState('')
+
+  const enviar = (event) => {
+    event.preventDefault()
+    onConfirm({ meses, mensaje })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-6" onClick={onClose}>
+      <form onSubmit={enviar} className="my-auto w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-gray-100 p-4">
+          <div className="flex items-center gap-2">
+            <CalendarPlus size={18} className="text-primary-600" />
+            <h2 className="font-semibold text-gray-800">Solicitar renovación</h2>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Cerrar"><X size={20} /></button>
+        </div>
+        <div className="space-y-4 p-5">
+          <div className="rounded-xl bg-primary-50 px-3 py-2 text-sm text-primary-800">
+            <p className="font-medium">{contrato.propiedad_titulo}</p>
+            <p className="mt-0.5 text-xs">El contrato actual finaliza el {contrato.fecha_fin}.</p>
+          </div>
+          <div>
+            <label htmlFor="renovacion-meses" className="mb-1 block text-sm font-medium text-gray-700">Meses adicionales</label>
+            <select id="renovacion-meses" value={meses} onChange={(event) => setMeses(event.target.value)} className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-primary-500">
+              {[1, 2, 3, 6, 9, 12].map((opcion) => <option key={opcion} value={opcion}>{opcion} {opcion === 1 ? 'mes' : 'meses'}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="renovacion-mensaje" className="mb-1 block text-sm font-medium text-gray-700">Mensaje para el arrendador <span className="font-normal text-gray-400">(opcional)</span></label>
+            <textarea id="renovacion-mensaje" value={mensaje} onChange={(event) => setMensaje(event.target.value)} rows={3} placeholder="Indica por qué deseas renovar el contrato..." className="w-full resize-none rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-primary-500" />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-100 p-4">
+          <button type="button" onClick={onClose} className="rounded-xl px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+          <button disabled={ocupado} className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50">
+            {ocupado ? <Loader2 size={16} className="animate-spin" /> : <CalendarPlus size={16} />} Enviar solicitud
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function Contratos() {
   const { user } = useAuth()
   const esArrendador = user?.rol === 'arrendador'
@@ -82,12 +130,18 @@ export default function Contratos() {
   const [busqueda, setBusqueda] = useState('')
   const [ocupadoId, setOcupadoId] = useState(null)
   const [ficha, setFicha] = useState(null)
+  const [renovaciones, setRenovaciones] = useState([])
+  const [contratoARenovar, setContratoARenovar] = useState(null)
 
   useEffect(() => {
     if (!user) return
     let activo = true
-    listContratos(user.rol, user.id)
-      .then((data) => { if (activo) setContratos(data) })
+    Promise.all([listContratos(user.rol, user.id), listRenovaciones(user.rol, user.id)])
+      .then(([contratosData, renovacionesData]) => {
+        if (!activo) return
+        setContratos(contratosData)
+        setRenovaciones(renovacionesData)
+      })
       .catch((e) => { if (activo) setError(e.message || 'No se pudieron cargar los contratos.') })
       .finally(() => { if (activo) setCargando(false) })
     return () => { activo = false }
@@ -102,6 +156,38 @@ export default function Contratos() {
       setContratos((lista) => lista.map((c) => (c.id === contrato.id ? { ...c, ...data } : c)))
     } catch (e) {
       setError(e.message || 'No se pudo finalizar el contrato.')
+    } finally {
+      setOcupadoId(null)
+    }
+  }
+
+  const solicitarRenovacion = async ({ meses, mensaje }) => {
+    if (!contratoARenovar) return
+    setOcupadoId(`renovar-${contratoARenovar.id}`)
+    setError('')
+    try {
+      const renovacion = await crearRenovacion(contratoARenovar.id, meses, mensaje)
+      setRenovaciones((lista) => [renovacion, ...lista])
+      setContratoARenovar(null)
+    } catch (errorRenovacion) {
+      setError(errorRenovacion.message || 'No se pudo enviar la solicitud de renovación.')
+    } finally {
+      setOcupadoId(null)
+    }
+  }
+
+  const responderRenovacion = async (renovacion, aprobar) => {
+    const accion = aprobar ? 'aprobar' : 'rechazar'
+    if (!window.confirm(`¿Deseas ${accion} esta renovación?`)) return
+    setOcupadoId(`renovacion-${renovacion.id}`)
+    setError('')
+    try {
+      const actualizada = await resolverRenovacion(renovacion.id, aprobar)
+      const contratosActualizados = await listContratos(user.rol, user.id)
+      setRenovaciones((lista) => lista.map((item) => (item.id === actualizada.id ? actualizada : item)))
+      setContratos(contratosActualizados)
+    } catch (errorRenovacion) {
+      setError(errorRenovacion.message || 'No se pudo responder la renovación.')
     } finally {
       setOcupadoId(null)
     }
@@ -220,6 +306,11 @@ export default function Contratos() {
               const meta = ESTADO[c.estado] || ESTADO.vigente
               const EstadoIcon = meta.icon
               const ocupado = ocupadoId === c.id
+              const renovacionPendiente = renovaciones.find(
+                (renovacion) => renovacion.contrato_id === c.id && renovacion.estado === 'pendiente',
+              )
+              const procesandoRenovacion = renovacionPendiente && ocupadoId === `renovacion-${renovacionPendiente.id}`
+              const solicitandoRenovacion = ocupadoId === `renovar-${c.id}`
               return (
                 <div key={c.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -247,6 +338,14 @@ export default function Contratos() {
                     </p>
                   </div>
 
+                  {renovacionPendiente && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <p className="font-semibold">Renovación pendiente · {renovacionPendiente.meses} {renovacionPendiente.meses === 1 ? 'mes adicional' : 'meses adicionales'}</p>
+                      {renovacionPendiente.mensaje && <p className="mt-1">“{renovacionPendiente.mensaje}”</p>}
+                      {!esArrendador && <p className="mt-1">Tu arrendador aún debe responder esta solicitud.</p>}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-end gap-2 mt-4">
                     <button
                       onClick={() => setFicha(c)}
@@ -261,6 +360,25 @@ export default function Contratos() {
                       >
                         <Wrench size={14} /> Reportar incidencia
                       </Link>
+                    )}
+                    {!esArrendador && c.estado === 'vigente' && !renovacionPendiente && (
+                      <button
+                        disabled={solicitandoRenovacion}
+                        onClick={() => setContratoARenovar(c)}
+                        className="flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                      >
+                        {solicitandoRenovacion ? <Loader2 size={14} className="animate-spin" /> : <CalendarPlus size={14} />} Renovar contrato
+                      </button>
+                    )}
+                    {esArrendador && renovacionPendiente && (
+                      <>
+                        <button disabled={procesandoRenovacion} onClick={() => responderRenovacion(renovacionPendiente, false)} className="flex items-center gap-1 rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50">
+                          <X size={14} /> Rechazar renovación
+                        </button>
+                        <button disabled={procesandoRenovacion} onClick={() => responderRenovacion(renovacionPendiente, true)} className="flex items-center gap-1 rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100 disabled:opacity-50">
+                          {procesandoRenovacion ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />} Aprobar renovación
+                        </button>
+                      </>
                     )}
                     {esArrendador && c.estado === 'vigente' && (
                       <button
@@ -280,6 +398,14 @@ export default function Contratos() {
       </div>
 
       {ficha && <FichaContrato contrato={ficha} onClose={() => setFicha(null)} />}
+      {contratoARenovar && (
+        <RenovacionModal
+          contrato={contratoARenovar}
+          ocupado={ocupadoId === `renovar-${contratoARenovar.id}`}
+          onClose={() => setContratoARenovar(null)}
+          onConfirm={solicitarRenovacion}
+        />
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { LogIn, Eye, EyeOff } from 'lucide-react'
+import { LogIn, Eye, EyeOff, Home } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -43,7 +43,7 @@ export default function Login() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <span className="text-4xl">🏠</span>
+          <Home className="mx-auto text-primary-700" size={40} strokeWidth={1.8} aria-hidden="true" />
           <h1 className="text-2xl font-bold text-gray-800 mt-2">ManabíRent</h1>
           <p className="text-gray-500 text-sm mt-1">Ingresa a tu cuenta</p>
         </div>

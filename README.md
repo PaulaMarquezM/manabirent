@@ -24,7 +24,7 @@
 - **Gestión de propiedades:** creación, edición, eliminación, imágenes en Supabase Storage y estados `disponible`, `arrendada` y `mantenimiento`.
 - **Solicitudes de arriendo:** el arrendatario postula a un inmueble disponible y el arrendador puede aprobar o rechazar con una respuesta.
 - **Contratos digitales:** al aprobar una solicitud se crea una ficha contractual, el inmueble pasa a arrendado y las otras solicitudes pendientes se rechazan.
-- **Historial contractual:** consulta y finalización de contratos vigentes para las dos partes.
+- **Historial y renovación contractual:** consulta y finalización de contratos vigentes; el arrendatario puede solicitar meses adicionales y el arrendador aprueba o rechaza la renovación.
 - **Incidencias de mantenimiento:** los arrendatarios reportan novedades asociadas a contratos activos y los arrendadores actualizan su estado con trazabilidad completa.
 - **Panel municipal:** KPIs, gráficos de inmuebles por ciudad y tipo, y moderación de usuarios y publicaciones.
 
@@ -86,7 +86,8 @@ En el **SQL Editor** de Supabase, ejecuta los scripts en este orden:
 Después de los esquemas base, aplica las migraciones de `supabase/migrations/`
 en orden cronológico. La migración `20260803_rf10_seguimiento_incidencias.sql`
 incorpora los estados Pendiente, En proceso y Resuelto, además del historial de
-cambios requerido por RF-10.
+cambios requerido por RF-10. La migración `20260809_rf08_renovaciones.sql`
+incorpora las solicitudes de renovación y la extensión de contratos aprobados.
 
 > `supabase_setup.sql` corresponde a una configuración inicial alternativa. Para una instalación nueva, usa la secuencia anterior y evita ejecutar ambos esquemas de perfiles.
 

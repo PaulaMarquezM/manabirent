@@ -264,7 +264,23 @@ export const puntosInteres = [
 
 export const tiposInmueble = ['habitacion', 'departamento', 'suite', 'casa']
 export const ciudades = ['Manta', 'Portoviejo']
-export const sectoresPorCiudad = {
-  Manta: ['Tarqui', 'Los Esteros', 'Manta Centro', 'Playa Murciélago', 'Puerto de Manta'],
-  Portoviejo: ['Centro', 'Ciudadela Universitaria', 'Colinas del Norte'],
+export const parroquiasPorCiudad = {
+  Manta: {
+    urbanas: ['Eloy Alfaro', 'Los Esteros', 'Manta', 'San Mateo', 'Tarqui'],
+    rurales: ['San Lorenzo', 'Santa Marianita'],
+  },
+  Portoviejo: {
+    urbanas: [
+      '12 de Marzo',
+      '18 de Octubre',
+      'Andrés de Vera',
+      'Colón',
+      'Francisco Pacheco',
+      'Picoazá',
+      'Portoviejo',
+      'San Pablo',
+      'Simón Bolívar',
+    ],
+    rurales: ['Abdón Calderón', 'Alhajuela', 'Chirijos', 'Crucita', 'Pueblo Nuevo', 'Riochico', 'San Plácido'],
+  },
 }

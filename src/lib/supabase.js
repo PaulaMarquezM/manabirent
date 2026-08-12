@@ -23,6 +23,7 @@ function crearClienteSupabaseFaltante() {
     select: () => query,
     order: () => query,
     eq: () => query,
+    neq: () => query,
     in: () => query,
     limit: () => query,
     insert: () => query,

@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Star, CheckCircle, Phone, Clock, FileText, ChevronLeft, ChevronRight, KeyRound, Loader2 } from 'lucide-react'
+import { ArrowLeft, MapPin, Star, CheckCircle, Phone, Clock, FileText, ChevronLeft, ChevronRight, KeyRound, Loader2, Wifi, ShowerHead, Car, CookingPot, Snowflake, Tv, LockKeyhole, Shirt, Sparkles, Trees, Flame, BriefcaseBusiness, Bath } from 'lucide-react'
 import { properties } from '../data/mockData'
 import { getPublicProperty } from '../lib/properties'
 import { useAuth } from '../context/AuthContext'
@@ -9,24 +9,11 @@ import RequestRentalModal from '../components/RequestRentalModal'
 const MapView = lazy(() => import('../components/MapView'))
 
 const servicioIcono = {
-  WiFi: '📶',
-  'Agua caliente': '🚿',
-  Parqueadero: '🚗',
-  'Cocina equipada': '🍳',
-  'Cocina compartida': '🍳',
-  'Cocina integral': '🍳',
-  'Aire acondicionado': '❄️',
-  'Smart TV': '📺',
-  'Seguridad 24/7': '🔒',
-  Seguridad: '🔒',
-  'Lavandería': '👕',
-  'Limpieza semanal': '🧹',
-  Patio: '🌿',
-  BBQ: '🔥',
-  'Área de lavado': '👕',
-  'WiFi fibra óptica': '🚀',
-  'Escritorio de trabajo': '💼',
-  'Baño privado': '🚿',
+  WiFi: Wifi, 'WiFi fibra óptica': Wifi, 'Agua caliente': ShowerHead, Parqueadero: Car,
+  'Cocina equipada': CookingPot, 'Cocina compartida': CookingPot, 'Cocina integral': CookingPot,
+  'Aire acondicionado': Snowflake, 'Smart TV': Tv, 'Seguridad 24/7': LockKeyhole, Seguridad: LockKeyhole,
+  Lavandería: Shirt, 'Área de lavado': Shirt, 'Limpieza semanal': Sparkles, Patio: Trees,
+  BBQ: Flame, 'Escritorio de trabajo': BriefcaseBusiness, 'Baño privado': Bath,
 }
 
 export default function PropertyDetail() {
@@ -177,7 +164,7 @@ export default function PropertyDetail() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {property.servicios.map((s) => (
                     <div key={s} className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                      <span>{servicioIcono[s] || '✓'}</span>
+                      {(() => { const Icon = servicioIcono[s]; return Icon ? <Icon size={18} aria-hidden="true" /> : <CheckCircle size={18} aria-hidden="true" /> })()}
                       <span>{s}</span>
                     </div>
                   ))}
@@ -237,7 +224,7 @@ export default function PropertyDetail() {
           {/* Columna derecha - Contacto y Contrato */}
           <div className="space-y-4">
             {/* Precio y contacto */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 sticky top-20">
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
               <div className="text-center mb-4">
                 <span className="text-3xl font-bold text-primary-700">${property.precio}</span>
                 <span className="text-gray-400 text-sm">/mes</span>

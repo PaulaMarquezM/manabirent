@@ -10,6 +10,7 @@ L.Icon.Default.mergeOptions({
 
 export default function MapView({ properties, center = [-1.0, -80.6], zoom = 9 }) {
   const propertiesWithLocation = properties.filter((p) => p.lat && p.lng)
+  const formatPrice = (price) => Number(price || 0).toLocaleString('en-US')
 
   return (
     <MapContainer center={center} zoom={zoom} className="w-full h-full" style={{ minHeight: '400px' }}>
@@ -18,10 +19,12 @@ export default function MapView({ properties, center = [-1.0, -80.6], zoom = 9 }
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {propertiesWithLocation.map((p) => (
-        <Marker key={p.id} position={[p.lat, p.lng]} icon={new L.DivIcon({
-          html: `<div style="background:#1d6fa4;color:white;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;white-space:nowrap;">$${p.precio}</div>`,
-          className: '',
-          iconAnchor: [25, 12],
+        <Marker key={p.id} position={[p.lat, p.lng]} zIndexOffset={1000} icon={new L.DivIcon({
+          html: `<div style="display:flex;align-items:center;justify-content:center;min-width:72px;height:30px;box-sizing:border-box;background:#1d6fa4;color:white;font-size:12px;font-weight:700;line-height:1;padding:0 8px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid white;white-space:nowrap;">$${formatPrice(p.precio)}</div>`,
+          className: 'manabirent-price-marker',
+          iconSize: [72, 30],
+          iconAnchor: [36, 15],
+          popupAnchor: [0, -15],
         })}>
           <Popup>
             <div className="text-sm" style={{ minWidth: '160px' }}>
